@@ -33,6 +33,9 @@ class LoginControl(Column):
         self.view_status:LoginViewStatus = LoginViewStatus.ViewLoginUsername  # 用于甄别具体是何登录注册视图
         container_login = self.build_interface()
         self.controls = [container_login]
+        self.page.appbar = None
+        self.page.floating_action_button = None
+        self.page.bottom_appbar = None
 
     def on_tab_change(self, e):
         match e.control.selected_index:

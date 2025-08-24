@@ -1,11 +1,12 @@
-from datetime import datetime
+from datetime import datetime, date
 
 import httpx
 from flet import Column, Row, Icons, Colors
-from flet.core import border, border_radius, alignment
+from flet.core import border, border_radius, alignment, padding
 from flet.core.alert_dialog import AlertDialog
 from flet.core.app_bar import AppBar
 from flet.core.border import BorderSide, BorderSideStrokeAlign
+from flet.core.box import BoxShadow
 from flet.core.container import Container
 from flet.core.divider import Divider
 from flet.core.floating_action_button import FloatingActionButton
@@ -19,8 +20,7 @@ from flet.core.safe_area import SafeArea
 from flet.core.snack_bar import SnackBar
 from flet.core.text import Text
 from flet.core.text_button import TextButton
-from flet.core.types import FontWeight, MainAxisAlignment, CrossAxisAlignment, ImageFit
-from flet.core.vertical_divider import VerticalDivider
+from flet.core.types import MainAxisAlignment, CrossAxisAlignment, ImageFit
 
 from api_request import APIRequest
 
@@ -68,7 +68,7 @@ class MainView(Column):
             ]
         )
 
-        floating_btn = FloatingActionButton(
+        self.page.floating_action_button = FloatingActionButton(
             icon=Icons.ADD,
             bgcolor=Colors.BLUE,
             foreground_color=Colors.WHITE,
@@ -88,7 +88,7 @@ class MainView(Column):
 
         content = self.build_interface()
 
-        self.page.floating_action_button = floating_btn
+        self.page.bottom_appbar = None
         self.page.drawer = self.drawer
 
         self.controls = [content, self.dlg_about]
@@ -163,7 +163,6 @@ class MainView(Column):
                         continue
                     for info in lst_info:
                         diary_date = info.get('diary_date')
-                        # dt_diary = datetime.strptime(diary_date, '%Y-%m-%d')
                         diary_info = info.get('diary_info')
                         if isinstance(diary_info, list):
                             continue
@@ -177,6 +176,8 @@ class MainView(Column):
                             'diary_text': diary_text,
                             'diary_weather': diary_weather,
                             'diary_location': diary_location,
+                            'create_time': diary_info.get('create_time'),
+                            'update_time': diary_info.get('update_time'),
                         }
                         diary_list.append(dct_diary)
             for diary in diary_list:
@@ -186,40 +187,53 @@ class MainView(Column):
                 diary_text = diary.get('diary_text')[:200]
                 diary_location = diary.get('diary_location')
                 diary_item = Container(
-                    content=Column(
+                    content=Row(
                         controls=[
-                            Row(
-                                controls=[
-                                    VerticalDivider(
-                                        thickness=3,
-                                        width=3,
-                                        color=diary.get('diary_type_color') if diary.get('diary_type_color') else Colors.BLUE,
-                                    ),
-                                    Text(value=diary_date,
-                                         size=11,
-                                         color=Colors.BLUE_600),
-                                    Container(expand=True),
-                                    Text(value=diary_weather,
-                                         size=11,
-                                         color=Colors.BLUE_600),
-                                    Text(value=diary_location,
-                                         no_wrap=False,
-                                         size=11,
-                                         color=Colors.BLUE_600),
-                                ]
+                            Container(
+                                bgcolor=diary.get('diary_type_color') if diary.get('diary_type_color') else Colors.BLUE,
+                                width=3,
+                                height=25,
+                                padding=padding.only(left=20, top=3, right=20, bottom=3)
                             ),
-                            Text(value=diary_text,
-                                 size=13,
-                                 color=Colors.BLACK87),
+                            Column(
+                                controls=[
+                                    Row(
+                                        controls=[
+                                            Text(
+                                                value=diary_date,
+                                                size=11,
+                                                color=Colors.BLUE_600
+                                            ),
+                                            Container(expand=True),
+                                            Text(
+                                                value=diary_weather,
+                                                size=11,
+                                                color=Colors.BLUE_600
+                                            ),
+                                            Text(
+                                                value=diary_location,
+                                                no_wrap=False,
+                                                size=11,
+                                                color=Colors.BLUE_600),
+                                        ]
+                                    ),
+                                Text(value=diary_text,
+                                     size=13,
+                                     color=Colors.BLACK87),
 
+                                ],
+                            ),
                         ],
                     ),
                     data=diary,
                     adaptive=True,
                     border_radius=2,
-                    on_click=self.on_note_item_click,
-                    border=border.only(None, None, None,
-                                       BorderSide(1, Colors.GREY_200, BorderSideStrokeAlign.INSIDE))
+                    on_click=self.on_diary_item_click,
+                    border=border.only(
+                        None, None, None,
+                        BorderSide(1, Colors.GREY_200, BorderSideStrokeAlign.INSIDE)),
+                    shadow=BoxShadow(spread_radius=0, blur_radius=0,
+                                     color=Colors.GREY_200, offset=(1,1)),
                 )
                 self.note_list.controls.append(diary_item)
                 self.page.update()
@@ -237,21 +251,36 @@ class MainView(Column):
         return dct_info
 
     def on_fab_pressed(self, e):
-        self.page.go('/edit?id=null')
+        self.page.controls.clear()
+        from diary_editor_view import DiaryEditorView
+        page_view = SafeArea(
+            DiaryEditorView(self.page, None),
+            adaptive=True,
+            expand=True
+        )
+        self.page.controls.append(page_view)
+        self.page.update()
 
     def on_button_refresh_click(self, e):
         self.page.run_task(self.query_diary_list)
 
-    def on_note_item_click(self, e):
-        note_data = e.control.data
-        note_id = note_data.get('id')
-        if True:
-            self.page.go(f'/view?id={note_id}')
-        else:
-            snack_bar = SnackBar(Text("暂不支持此类笔记查看!"))
-            e.control.page.overlay.append(snack_bar)
-            snack_bar.open = True
-            e.control.page.update()
+    def on_diary_item_click(self, e):
+        diary_data = e.control.data
+        # diary_id = diary_data.get('id')
+        self.page.controls.clear()
+        from diary_detail_view import DiaryDetailView
+        page_view = SafeArea(
+            DiaryDetailView(self.page, diary_data),
+            # maintain_bottom_view_padding=True,
+            adaptive=True,
+            expand=True
+        )
+        self.page.controls.append(page_view)
+        self.page.update()
+        # snack_bar = SnackBar(Text("暂不支持此类笔记查看!"))
+        # e.control.page.overlay.append(snack_bar)
+        # snack_bar.open = True
+        # e.control.page.update()
 
     def on_menu_click(self, e):
         self.drawer.open = True
@@ -441,11 +470,17 @@ class MainView(Column):
             spacing=10,
             padding=20,
             expand=True,
-            height=self.page.height - 10)
+            height=self.page.height - 10
+        )
 
+        today = date.today()
+        str_today = f'{today.year}年{today.month}月{today.day}日,{['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'][today.weekday()]}'
         col_notes = Column(
             controls = [
-                # title_bar,
+                Text(
+                    f'今天是{str_today}',
+                    size=14,
+                ),
                 self.note_list,
             ],
             alignment=MainAxisAlignment.START,
