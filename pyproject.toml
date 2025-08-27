@@ -3,12 +3,15 @@ name = "bool-diary-mobile-2"
 version = "0.1.0"
 description = ""
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = "==3.12.*"
 authors = [
     { name = "Flet developer", email = "you@example.com" }
 ]
 dependencies = [
-  "flet==0.28.3"
+    "flet==0.28.3",
+    "requests>=2.32.4",
+    "certifi==2025.8.3",
+    "flet-geolocator==0.1.0"
 ]
 
 [tool.flet]
@@ -18,16 +21,21 @@ org = "com.mycompany"
 
 # project display name that is used as an app title on Android and iOS home screens,
 # shown in window titles and about app dialogs on desktop.
-product = "bool-diary-mobile-2"
+product = "bool-diary"
 
 # company name to display in about app dialogs
-company = "Flet"
+company = "浙江舒博特网络科技有限公司"
 
 # copyright text to display in about app dialogs
-copyright = "Copyright (C) 2025 by Flet"
+copyright = "Copyright (C) 2025 by Superiot"
 
 [tool.flet.app]
 path = "src"
+
+[tool.flet.android]
+split_per_abi = true
+# abi_filters = ["arm64-v8a"]  # 指定支持的架构, "armeabi-v7a",
+assets = ["assets"]
 
 [tool.uv]
 dev-dependencies = [

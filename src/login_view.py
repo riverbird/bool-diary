@@ -34,6 +34,7 @@ class LoginControl(Column):
         container_login = self.build_interface()
         self.controls = [container_login]
         self.page.appbar = None
+        self.page.drawer = None
         self.page.floating_action_button = None
         self.page.bottom_appbar = None
 
@@ -47,7 +48,6 @@ class LoginControl(Column):
     def on_id_code_login_click(self, e):
         # 切换至短信验证码登录
         self.view_status = LoginViewStatus.ViewLoginSmsView
-        # self.tabs_login.tabs[0].content.content = self.card_login_id_code
         tf_verify_code = TextField(label='验证码',
                                    width=260,
                                    prefix_icon=Icons.VERIFIED,
@@ -105,7 +105,6 @@ class LoginControl(Column):
                 ),
                 width=400,
                 padding=10,
-                # bgcolor=Colors.TRANSPARENT
             )
         )
         tabs_login = self.controls[0].controls[2].tabs[0]
@@ -371,11 +370,11 @@ class LoginControl(Column):
                 ),
                 Row(
                     controls=[
-                        Image(src=f'/icons/shiqu-250.png',
+                        Image(src=f'assets/icon.png',
                             width=64, height=64,
                             fit=ImageFit.CONTAIN,
                             border_radius=border_radius.all(30)),
-                        Text('布尔笔记', size=24, color=Colors.BLUE,
+                        Text('布尔日记', size=24, color=Colors.BLUE,
                             weight=FontWeight.BOLD,
                         ),
                     ]

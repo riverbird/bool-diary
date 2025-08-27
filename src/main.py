@@ -1,10 +1,11 @@
 # coding:utf-8
 import flet
 from flet import Page, Theme
+from flet.core.colors import Colors
 from flet.core.safe_area import SafeArea
-from flet.core.theme import DatePickerTheme
+from flet.core.theme import DatePickerTheme, SystemOverlayStyle
 from flet.core.types import VisualDensity, MainAxisAlignment, CrossAxisAlignment, ThemeMode, PagePlatform, ScrollMode, \
-    Locale
+    Locale, Brightness
 
 from login_view import LoginControl
 from main_view import MainView
@@ -29,6 +30,10 @@ def main(page: Page):
         font_family='微软雅黑',
         date_picker_theme=DatePickerTheme(locale=Locale('zh', 'CN')),
         visual_density=VisualDensity.ADAPTIVE_PLATFORM_DENSITY,
+        system_overlay_style=SystemOverlayStyle(
+            status_bar_color=Colors.BLACK,  # 状态栏背景设为黑色
+            status_bar_brightness=Brightness.DARK,  # 适用于 iOS（整个状态栏亮模式）
+            status_bar_icon_brightness=Brightness.LIGHT,),
         use_material3=False)
     page.dark_theme = Theme(
         color_scheme_seed="green",

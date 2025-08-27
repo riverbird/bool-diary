@@ -15,7 +15,7 @@ from flet.core.safe_area import SafeArea
 from flet.core.snack_bar import SnackBar
 from flet.core.text import Text
 from flet.core.text_button import TextButton
-from flet.core.types import MainAxisAlignment, ScrollMode
+from flet.core.types import MainAxisAlignment, ScrollMode, TextAlign
 
 from api_request import APIRequest
 
@@ -178,8 +178,10 @@ class DiaryDetailView(Column):
     def build_interface(self):
         self.note_view = Text(
             value=self.diary_info.get('diary_text'),
+            size=16,
+            text_align=TextAlign.LEFT,
             no_wrap=False,
-            expand=True
+            expand=True,
         )
         # 布局
         cols_body = Column(
@@ -189,5 +191,8 @@ class DiaryDetailView(Column):
                     scroll=ScrollMode.AUTO
                 )
             ],
+            alignment=MainAxisAlignment.START,
+            expand=True,
+            adaptive=True,
         )
         return cols_body

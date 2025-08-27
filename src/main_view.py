@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, date
 
 import httpx
@@ -16,11 +17,13 @@ from flet.core.image import Image
 from flet.core.list_tile import ListTile
 from flet.core.list_view import ListView
 from flet.core.navigation_drawer import NavigationDrawer, NavigationDrawerPosition
+from flet.core.progress_bar import ProgressBar
 from flet.core.safe_area import SafeArea
+from flet.core.scrollable_control import OnScrollEvent
 from flet.core.snack_bar import SnackBar
 from flet.core.text import Text
 from flet.core.text_button import TextButton
-from flet.core.types import MainAxisAlignment, CrossAxisAlignment, ImageFit
+from flet.core.types import MainAxisAlignment, CrossAxisAlignment, ImageFit, FontWeight
 
 from api_request import APIRequest
 
@@ -31,13 +34,12 @@ class MainView(Column):
         self.page = page
         self.selected_idx = -1
         self.page_idx = 1
+        self.loading = False
+        self.diary_type_list = None
 
         self.alignment = MainAxisAlignment.SPACE_BETWEEN,
         self.spacing = 0
         self.tight = True
-
-        self.token = self.page.client_storage.get('token')
-        self.user_id = self.page.client_storage.get('user_id')
 
         self.dlg_about = AlertDialog(
             modal=True,
@@ -56,18 +58,21 @@ class MainView(Column):
             actions_alignment=MainAxisAlignment.END,
         )
 
-        self.drawer = NavigationDrawer(
-            position=NavigationDrawerPosition.START,
-            controls=[
-                Container(
-                    content=self.build_drawer(),
-                    expand=1,
-                    padding=0,
-                    margin=0,
-                )
-            ]
-        )
+        # 抽屉
+        self.page.run_task(self.build_drawer)
+        # self.drawer = NavigationDrawer(
+        #     position=NavigationDrawerPosition.START,
+        #     controls=[
+        #         Container(
+        #             content=self.build_drawer(),
+        #             expand=1,
+        #             padding=0,
+        #             margin=0,
+        #         )
+        #     ]
+        # )
 
+        # 浮动按钮
         self.page.floating_action_button = FloatingActionButton(
             icon=Icons.ADD,
             bgcolor=Colors.BLUE,
@@ -82,71 +87,27 @@ class MainView(Column):
             title=Text('布尔日记'),
             bgcolor=Colors.BLUE,
             actions=[
-                IconButton(icon=Icons.SEARCH)
+                IconButton(icon=Icons.SEARCH),
+                IconButton(icon=Icons.REFRESH,
+                           on_click=self.on_button_refresh_click),
             ],
         )
 
         content = self.build_interface()
 
         self.page.bottom_appbar = None
-        self.page.drawer = self.drawer
-
+        # self.page.drawer = self.drawer
         self.controls = [content, self.dlg_about]
-
         self.page.run_task(self.query_diary_list)
 
-    def query_note_list(self, flag='recent'):
-        self.note_list.controls.clear()
-        token = self.page.client_storage.get('token')
-        user_id = self.page.client_storage.get('user_id')
-        # match flag:
-        #     case 'favorites':
-        #         notes = APIRequest.query_favorite_notes(token)
-        #     case 'trash':
-        #         notes = APIRequest.query_trash_notes(token)
-        #     case _:
-        #         notes = APIRequest.query_notes(token, user_id)
-        notes = []
-        if not notes:
-            return
-        lst_note_type = ['文本笔记', '代码笔记', 'Markdown笔记',
-                         '备忘笔记', '富文本笔记', '表格笔记',
-                         '大纲笔记', '绘画笔记', '图表笔记',
-                         'PDF笔记', '时间轴笔记']
-        for note in notes:
-            dt_time = datetime.strptime(note.get('update_time'), '%Y-%m-%dT%H:%M:%S.%f')
-            str_update_time = dt_time.strftime("%Y-%m-%d %H:%M:%S")
-            note_item = Container(
-                content=Column(
-                    controls=[
-                        Row(controls=[
-                            Text(value=note.get('title', '--'),
-                                 size=15,
-                                 color=Colors.BLACK),
-                            Text(value=lst_note_type[note.get('note_type')],
-                                 size=10,
-                                 color=Colors.GREY_600),
-                            ],
-                            alignment=MainAxisAlignment.SPACE_BETWEEN
-                        ),
-                        Text(value=str_update_time,
-                             size=9,
-                             color=Colors.BLUE_600),
-                    ],
-                ),
-                data = note,
-                adaptive=True,
-                border_radius=2,
-                on_click=self.on_note_item_click,
-                border=border.only(None, None, None,
-                                   BorderSide(1, Colors.GREY_200,BorderSideStrokeAlign.INSIDE))
-            )
-            self.note_list.controls.append(note_item)
-
     async def query_diary_list(self):
+        self.progress_bar.visible = True
+        self.page.update()
         self.note_list.controls.clear()
-        url = f'https://restapi.10qu.com.cn/my_diary?user={self.user_id}&page={self.page_idx}&size=20'
-        headers = {"Authorization": f'Bearer {self.token}'}
+        token = await self.page.client_storage.get_async('token')
+        user_id = await self.page.client_storage.get_async('user_id')
+        url = f'https://restapi.10qu.com.cn/my_diary?user={user_id}&page={self.page_idx}&size=20'
+        headers = {"Authorization": f'Bearer {token}'}
         try:
             diary_list = []
             async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
@@ -166,16 +127,21 @@ class MainView(Column):
                         diary_info = info.get('diary_info')
                         if isinstance(diary_info, list):
                             continue
-                        diary_type_color = diary_info.get('diary_type_color')
+                        diary_type = diary_info.get('diary_type')
+                        diary_type_color = diary_info.get('diary_type__colour')
                         diary_text = diary_info.get('text')
                         diary_weather = diary_info.get('weather')
                         diary_location = diary_info.get('location')
+                        diary_mood = diary_info.get('mood')
                         dct_diary = {
+                            'diary_id': diary_info.get('id'),
                             'diary_date': diary_date,
+                            'diary_type': diary_type,
                             'diary_type_color': diary_type_color,
                             'diary_text': diary_text,
                             'diary_weather': diary_weather,
                             'diary_location': diary_location,
+                            'diary_mood': diary_mood,
                             'create_time': diary_info.get('create_time'),
                             'update_time': diary_info.get('update_time'),
                         }
@@ -192,8 +158,8 @@ class MainView(Column):
                             Container(
                                 bgcolor=diary.get('diary_type_color') if diary.get('diary_type_color') else Colors.BLUE,
                                 width=3,
-                                height=25,
-                                padding=padding.only(left=20, top=3, right=20, bottom=3)
+                                height=30,
+                                padding=padding.only(left=0, top=3, right=5, bottom=3)
                             ),
                             Column(
                                 controls=[
@@ -201,24 +167,25 @@ class MainView(Column):
                                         controls=[
                                             Text(
                                                 value=diary_date,
-                                                size=11,
+                                                size=12,
                                                 color=Colors.BLUE_600
                                             ),
                                             Container(expand=True),
                                             Text(
                                                 value=diary_weather,
-                                                size=11,
+                                                size=12,
                                                 color=Colors.BLUE_600
                                             ),
                                             Text(
                                                 value=diary_location,
                                                 no_wrap=False,
-                                                size=11,
+                                                size=12,
                                                 color=Colors.BLUE_600),
                                         ]
                                     ),
                                 Text(value=diary_text,
-                                     size=13,
+                                     size=16,
+                                     no_wrap=False,
                                      color=Colors.BLACK87),
 
                                 ],
@@ -226,29 +193,28 @@ class MainView(Column):
                         ],
                     ),
                     data=diary,
+                    margin=3,
                     adaptive=True,
                     border_radius=2,
                     on_click=self.on_diary_item_click,
                     border=border.only(
                         None, None, None,
-                        BorderSide(1, Colors.GREY_200, BorderSideStrokeAlign.INSIDE)),
+                        BorderSide(1, Colors.GREY_200, BorderSideStrokeAlign.OUTSIDE)),
                     shadow=BoxShadow(spread_radius=0, blur_radius=0,
-                                     color=Colors.GREY_200, offset=(1,1)),
+                                     color=Colors.WHITE, offset=(1,1)),
                 )
                 self.note_list.controls.append(diary_item)
                 self.page.update()
+                self.progress_bar.visible = False
         except httpx.HTTPError as e:
-            snack_bar = SnackBar(Text("用户退出登录请求失败!"))
+            snack_bar = SnackBar(Text(f"查询用户日记列表请求失败:{str(e)}"))
             self.page.overlay.append(snack_bar)
             snack_bar.open = True
+            self.progress_bar.visible = False
             self.page.update()
 
-    def query_summary_info(self):
-        dct_info = {}
-        token = self.page.client_storage.get('token')
-        dct_ret = APIRequest.query_user_info(token)
-        dct_info['nickname'] = dct_ret.get('nick_name', '用户名')
-        return dct_info
+    # def on_done_get_diary_type_list(self, task:asyncio.Task):
+    #     return task.result()
 
     def on_fab_pressed(self, e):
         self.page.controls.clear()
@@ -266,25 +232,15 @@ class MainView(Column):
 
     def on_diary_item_click(self, e):
         diary_data = e.control.data
-        # diary_id = diary_data.get('id')
         self.page.controls.clear()
         from diary_detail_view import DiaryDetailView
         page_view = SafeArea(
             DiaryDetailView(self.page, diary_data),
-            # maintain_bottom_view_padding=True,
             adaptive=True,
             expand=True
         )
         self.page.controls.append(page_view)
         self.page.update()
-        # snack_bar = SnackBar(Text("暂不支持此类笔记查看!"))
-        # e.control.page.overlay.append(snack_bar)
-        # snack_bar.open = True
-        # e.control.page.update()
-
-    def on_menu_click(self, e):
-        self.drawer.open = True
-        e.control.page.update()
 
     def on_about_click(self, e):
         self.page.dialog = self.dlg_about
@@ -323,24 +279,13 @@ class MainView(Column):
             self.drawer.open = True
             self.page.update()
 
-    def on_recent_note_click(self, e):
-        self.query_note_list(flag='recent')
-        self.title_text.value = '近期笔记'
-        self.selected_idx = 0
+    async def on_query_all_diary_click(self, e):
+        await self.query_diary_list()
         self.drawer.open = False
         self.page.update()
 
-    def on_favorites_note_click(self, e):
-        self.query_note_list(flag='favorites')
-        self.title_text.value = '收藏笔记'
+    def on_query_category_diary_click(self, e):
         self.selected_idx = 1
-        self.drawer.open = False
-        self.page.update()
-
-    def on_trash_note_click(self, e):
-        self.query_note_list(flag='trash')
-        self.title_text.value = '回收箱'
-        self.selected_idx = 2
         self.drawer.open = False
         self.page.update()
 
@@ -349,19 +294,41 @@ class MainView(Column):
         # self.page.go(f'/search?text={str_keyword}')
         self.page.go('/query')
 
-    def get_diary_type_list(self) -> list|None:
-        url = f'https://restapi.10qu.com.cn/diarytype?user={self.user_id}'
-        headers = {"Authorization": f'Bearer {self.token}'}
-        resp = httpx.get(url, headers=headers, follow_redirects=True)
-        if resp.status_code != 200:
-            return None
-        resp.raise_for_status()
-        data = resp.json()
-        lst_category = data.get('results')
-        return lst_category
+    async def get_diary_type_list(self) -> list|None:
+        user_id = await self.page.client_storage.get_async('user_id')
+        token = await self.page.client_storage.get_async('token')
+        url = f'https://restapi.10qu.com.cn/diarytype?user={user_id}'
+        headers = {"Authorization": f'Bearer {token}'}
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                resp = await client.get(
+                    url,
+                    headers=headers,
+                    follow_redirects=True)
+                resp.raise_for_status()
+                if resp.status_code != 200:
+                    return None
+                data = resp.json()
+                lst_category = data.get('results')
+                return lst_category
+        except httpx.HTTPError as e:
+            snack_bar = SnackBar(Text(f"查询用户日记类型请求失败:{str(e)}"))
+            self.page.overlay.append(snack_bar)
+            snack_bar.open = True
+            self.page.update()
 
-    def build_drawer(self):
-        user_info = APIRequest.query_user_info(self.page.client_storage.get('token'))
+    def on_list_view_scroll(self, e: OnScrollEvent):
+        # nonlocal loading
+        # # e.pixels: 当前滚动条位置
+        # # e.max_scroll_extent: 最大滚动位置
+        # if e.pixels >= e.max_scroll_extent - 50 and not loading:
+        #     # 距离底部小于50像素时触发加载
+        #     self.page.run_task(load_more)
+        pass
+
+    async def build_drawer(self):
+        token = await self.page.client_storage.get_async('token')
+        user_info = APIRequest.query_user_info(token)
         avatar_url = user_info.get('avatar_url', f'/icons/head.png')
         text_user = Text(
             user_info.get('nick_name', '用户名'),
@@ -388,7 +355,7 @@ class MainView(Column):
             adaptive=True,
         )
         # 获得日记类型列表
-        lst_category = self.get_diary_type_list()
+        lst_category = await self.get_diary_type_list()
         cate_list_tiles = [
             head,
             ListTile(title=Text('所有'),
@@ -396,7 +363,7 @@ class MainView(Column):
                      selected_tile_color=Colors.BLUE_100,
                      hover_color=Colors.BLUE_50,
                      leading=Icon(Icons.ALL_INBOX),
-                     on_click=self.on_recent_note_click,
+                     on_click=self.on_query_all_diary_click,
                      ),
         ]
         col_drawer = Column(
@@ -408,14 +375,13 @@ class MainView(Column):
             col_drawer.controls.append(
                 ListTile(
                     title=Text(cate.get('type_name')),
-                    # selected=self.selected_idx == 1,
                     leading=Container(
                         bgcolor=cate.get('colour'),
                         width=18, height=18,
                     ),
                     selected_tile_color=Colors.BLUE_100,
                     hover_color=Colors.BLUE_50,
-                    on_click=self.on_favorites_note_click,
+                    on_click=self.on_query_category_diary_click,
                 )
             )
         col_drawer.controls.append(Container(expand=True))
@@ -433,44 +399,38 @@ class MainView(Column):
                          leading=Icon(Icons.EXIT_TO_APP),
                          on_click=self.on_logout,
                          ))
-        return col_drawer
+        # return col_drawer
+        self.drawer = NavigationDrawer(
+            position=NavigationDrawerPosition.START,
+            open=False,
+            controls=[
+                Container(
+                    content=col_drawer,
+                    expand=1,
+                    padding=0,
+                    margin=0,
+                )
+            ]
+        )
+        self.page.drawer = self.drawer
+        self.page.update()
 
     def build_interface(self):
-        # 标题栏
-        # self.title_text = Text('布尔日记', size=20, weight=FontWeight.BOLD, color=Colors.WHITE)
-        # title_bar = Container(
-        #     content=Row(
-        #         controls=[
-        #             IconButton(icon=Icons.MENU,
-        #                        icon_color=Colors.WHITE,
-        #                        on_click=self.on_menu_click),
-        #             self.title_text,
-        #             Container(expand=True),
-        #             # IconButton(icon=Icons.REFRESH,
-        #             #            icon_color=Colors.WHITE,
-        #             #            on_click=self.on_button_refresh_click),
-        #             IconButton(icon=Icons.SEARCH,
-        #                        icon_color=Colors.WHITE,
-        #                        on_click=self.on_search_note,
-        #             ),
-        #             # tf_search,
-        #             # Container(width=3),
-        #         ],
-        #     ),
-        #     height=45,
-        #     border_radius=3,
-        #     adaptive=True,
-        #     bgcolor=Colors.BLUE_600,
-        #     # padding=padding.all(0),
-        #     # margin=margin.only(top=2, bottom=2)
-        # )
-
         # 笔记列表
         self.note_list = ListView(
             spacing=10,
-            padding=20,
+            padding=padding.only(left=2, top=5, right=2, bottom=5),
             expand=True,
-            height=self.page.height - 10
+            # height=self.page.height - 10,
+            on_scroll= self.on_list_view_scroll,
+        )
+
+        self.progress_bar = ProgressBar(
+            value=None,
+            bar_height=3,
+            bgcolor=Colors.GREY_100,
+            color=Colors.GREY_300,
+            width=self.page.width
         )
 
         today = date.today()
@@ -479,9 +439,11 @@ class MainView(Column):
             controls = [
                 Text(
                     f'今天是{str_today}',
-                    size=14,
+                    size=16,
+                    weight=FontWeight.BOLD,
                 ),
                 self.note_list,
+                self.progress_bar
             ],
             alignment=MainAxisAlignment.START,
             horizontal_alignment=CrossAxisAlignment.START,
