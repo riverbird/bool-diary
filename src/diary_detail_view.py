@@ -1,6 +1,7 @@
 """
 diary_detail_view.py
 """
+import httpx
 from flet.core.alert_dialog import AlertDialog
 from flet.core.app_bar import AppBar
 from flet.core.colors import Colors
@@ -16,9 +17,6 @@ from flet.core.snack_bar import SnackBar
 from flet.core.text import Text
 from flet.core.text_button import TextButton
 from flet.core.types import MainAxisAlignment, ScrollMode, TextAlign
-
-from api_request import APIRequest
-
 
 class DiaryDetailView(Column):
     def __init__(self, page, diary_info):
@@ -70,8 +68,6 @@ class DiaryDetailView(Column):
             bgcolor=Colors.BLUE,
             foreground_color=Colors.WHITE,
             data=0,
-            # bottom=24,
-            # right=16,
             on_click=self.on_fab_pressed,
         )
 
@@ -85,7 +81,7 @@ class DiaryDetailView(Column):
                 PopupMenuItem(
                     icon=Icons.DELETE,
                     text='删除',
-                    on_click=self.on_delete_note
+                    on_click=self.on_delete_diary
                 )
             ],
             icon_color=Colors.WHITE,
@@ -108,14 +104,6 @@ class DiaryDetailView(Column):
         self.controls = [content, self.dlg_info, self.dlg_delete_confirm]
 
     def on_fab_pressed(self, e):
-        # note_type = NoteType(self.note_info.get('note_type'))
-        # if note_type in [NoteType.TextNote, NoteType.CodeNote, NoteType.MarkdownNote]:
-        #     self.page.go(f'/edit?id={self.note_id}')
-        # else:
-        #     snack_bar = SnackBar(Text("暂不支持此类笔记编辑!"))
-        #     e.control.page.overlay.append(snack_bar)
-        #     snack_bar.open = True
-        #     e.control.page.update()
         self.page.controls.clear()
         from diary_editor_view import DiaryEditorView
         page_view = SafeArea(
@@ -141,35 +129,51 @@ class DiaryDetailView(Column):
         self.dlg_info.open = True
         self.page.update()
 
-    def on_delete_note(self, e):
-        delete_flag = self.note_info.get('delete_flag')
-        if delete_flag:
-            self.dlg_delete_confirm.open = True
-            self.page.update()
-        else:
-            orig_delete_flag = self.note_info.get('delete_flag')
-            dest_delete_flag = not orig_delete_flag
-            update_result = APIRequest.update_note_delete_flag(
-                self.page.client_storage.get('token'),
-                self.note_id, dest_delete_flag)
-            update_result_text = '成功' if update_result else '失败'
-            snack_bar = SnackBar(Text(f"修改笔记删除状态{update_result_text}!"))
-            e.control.page.overlay.append(snack_bar)
-            snack_bar.open = True
-            e.control.page.update()
+    def on_delete_diary(self, e):
+        self.dlg_delete_confirm.open = True
+        self.page.update()
 
     def on_dlg_info_ok_click(self, e):
         self.dlg_info.open = False
         self.page.update()
 
-    def on_dlg_delete_confirm_ok_click(self, e):
-        if not APIRequest.delete_note(self.page.client_storage.get('token'), self.note_id):
-            snack_bar = SnackBar(Text("删除笔记失败!"))
+    async def on_dlg_delete_confirm_ok_click(self, e):
+        token = await self.page.client_storage.get_async('token')
+        diary_id = self.diary_info.get("diary_id")
+        url = f'https://restapi.10qu.com.cn/diary/{diary_id}/'
+        headers = {"Authorization": f'Bearer {token}'}
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                resp = await client.delete(
+                    url,
+                    headers=headers,
+                )
+                resp.raise_for_status()
+                if resp.status_code != 204:
+                    snack_bar = SnackBar(Text("删除笔记失败!"))
+                    e.control.page.overlay.append(snack_bar)
+                    snack_bar.open = True
+                    e.control.page.update()
+                    return
+        except httpx.HTTPError as ex:
+            snack_bar = SnackBar(Text(f"删除笔记失败:{str(ex)}"))
             e.control.page.overlay.append(snack_bar)
             snack_bar.open = True
             e.control.page.update()
             return
-        self.page.go('/main_view')
+        # 关闭对话框
+        self.dlg_delete_confirm.open = False
+        self.page.update()
+        # 跳转至主页
+        self.page.controls.clear()
+        from main_view import MainView
+        page_view = SafeArea(
+            MainView(self.page),
+            adaptive=True,
+            expand=True
+        )
+        self.page.controls.append(page_view)
+        self.page.update()
 
     def on_dlg_delete_confirm_cancel_click(self, e):
         self.dlg_delete_confirm.open = False

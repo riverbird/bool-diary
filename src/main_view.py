@@ -18,6 +18,7 @@ from flet.core.list_tile import ListTile
 from flet.core.list_view import ListView
 from flet.core.navigation_drawer import NavigationDrawer, NavigationDrawerPosition
 from flet.core.progress_bar import ProgressBar
+from flet.core.progress_ring import ProgressRing
 from flet.core.safe_area import SafeArea
 from flet.core.scrollable_control import OnScrollEvent
 from flet.core.snack_bar import SnackBar
@@ -87,9 +88,14 @@ class MainView(Column):
             title=Text('布尔日记'),
             bgcolor=Colors.BLUE,
             actions=[
-                IconButton(icon=Icons.SEARCH),
-                IconButton(icon=Icons.REFRESH,
-                           on_click=self.on_button_refresh_click),
+                IconButton(
+                    icon=Icons.SEARCH,
+                    on_click=self.on_button_search_click
+                ),
+                IconButton(
+                    icon=Icons.REFRESH,
+                    on_click=self.on_button_refresh_click
+                ),
             ],
         )
 
@@ -100,10 +106,11 @@ class MainView(Column):
         self.controls = [content, self.dlg_about]
         self.page.run_task(self.query_diary_list)
 
-    async def query_diary_list(self):
+    async def query_diary_list(self, append_mode='restart', cate_id=None):
         self.progress_bar.visible = True
         self.page.update()
-        self.note_list.controls.clear()
+        if append_mode == 'restart':
+            self.note_list.controls.clear()
         token = await self.page.client_storage.get_async('token')
         user_id = await self.page.client_storage.get_async('user_id')
         url = f'https://restapi.10qu.com.cn/my_diary?user={user_id}&page={self.page_idx}&size=20'
@@ -128,6 +135,9 @@ class MainView(Column):
                         if isinstance(diary_info, list):
                             continue
                         diary_type = diary_info.get('diary_type')
+                        if cate_id is not None:
+                            if diary_type != cate_id:
+                                continue
                         diary_type_color = diary_info.get('diary_type__colour')
                         diary_text = diary_info.get('text')
                         diary_weather = diary_info.get('weather')
@@ -158,7 +168,7 @@ class MainView(Column):
                             Container(
                                 bgcolor=diary.get('diary_type_color') if diary.get('diary_type_color') else Colors.BLUE,
                                 width=3,
-                                height=30,
+                                height=25,
                                 padding=padding.only(left=0, top=3, right=5, bottom=3)
                             ),
                             Column(
@@ -196,6 +206,7 @@ class MainView(Column):
                     margin=3,
                     adaptive=True,
                     border_radius=2,
+                    height=80,
                     on_click=self.on_diary_item_click,
                     border=border.only(
                         None, None, None,
@@ -207,7 +218,7 @@ class MainView(Column):
                 self.page.update()
                 self.progress_bar.visible = False
         except httpx.HTTPError as e:
-            snack_bar = SnackBar(Text(f"查询用户日记列表请求失败:{str(e)}"))
+            snack_bar = SnackBar(Text(f"查询用户日记列表请求失败，请刷新重试。{str(e)}"))
             self.page.overlay.append(snack_bar)
             snack_bar.open = True
             self.progress_bar.visible = False
@@ -230,6 +241,17 @@ class MainView(Column):
     def on_button_refresh_click(self, e):
         self.page.run_task(self.query_diary_list)
 
+    def on_button_search_click(self, e):
+        self.page.controls.clear()
+        from search_diary_view import SearchDiaryView
+        page_view = SafeArea(
+            SearchDiaryView(self.page),
+            adaptive=True,
+            expand=True
+        )
+        self.page.controls.append(page_view)
+        self.page.update()
+
     def on_diary_item_click(self, e):
         diary_data = e.control.data
         self.page.controls.clear()
@@ -251,26 +273,55 @@ class MainView(Column):
         self.dlg_about.open = False
         self.page.update()
 
-    def on_logout(self, e):
-        req_result = APIRequest.logout(self.page.client_storage.get('token'))
-        if req_result is True:
-            self.page.client_storage.clear()
-            from login_view import LoginControl
-            page_view = SafeArea(
-                LoginControl(self.page),
-                adaptive=True,
-                expand=True
-            )
-            self.page.appbar = None
-            self.page.drawer = None
-            self.page.controls.clear()
-            self.page.controls.append(page_view)
-            self.page.update()
-            return
-        snack_bar = SnackBar(Text("用户退出登录请求失败!"))
-        e.control.page.overlay.append(snack_bar)
-        snack_bar.open = True
+    async def on_logout(self, e):
+        url = 'https://restapi.10qu.com.cn/logout/'
+        token = await self.page.client_storage.get_async('token')
+        headers = {"Authorization": f'Bearer {token}'}
+        progress_ring = ProgressRing(width=32, height=32, stroke_width=2)
+        progress_ring.top = self.page.height / 2 - progress_ring.height / 2
+        progress_ring.left = self.page.width / 2 - progress_ring.width / 2
+        e.control.page.overlay.append(progress_ring)
         e.control.page.update()
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                resp = await client.get(
+                    url,
+                    headers=headers,
+                )
+                resp.raise_for_status()
+                if resp.status_code != 200:
+                    snack_bar = SnackBar(Text("退出登录失败，请稍后重新再试。"))
+                    e.control.page.overlay.append(snack_bar)
+                    snack_bar.open = True
+                    progress_ring.visible = False
+                    e.control.page.update()
+                    return
+                data = resp.json()
+                if data.get('code') != '0':
+                    snack_bar = SnackBar(Text("退出登录失败，请稍后重新再试。"))
+                    e.control.page.overlay.append(snack_bar)
+                    snack_bar.open = True
+                    progress_ring.visible = False
+                    e.control.page.update()
+                    return
+        except httpx.HTTPError as ex:
+            snack_bar = SnackBar(Text(f"退出登录失败:{str(ex)}"))
+            e.control.page.overlay.append(snack_bar)
+            snack_bar.open = True
+            progress_ring.visible = False
+            e.control.page.update()
+        progress_ring.visible = False
+        # 跳转至登录界面
+        await self.page.client_storage.clear_async()
+        from login_view import LoginControl
+        page_view = SafeArea(
+            LoginControl(self.page),
+            adaptive=True,
+            expand=True
+        )
+        self.page.controls.clear()
+        self.page.controls.append(page_view)
+        self.page.update()
 
     def open_drawer(self, e):
         if self.page:
@@ -284,15 +335,12 @@ class MainView(Column):
         self.drawer.open = False
         self.page.update()
 
-    def on_query_category_diary_click(self, e):
-        self.selected_idx = 1
+    async def on_query_category_diary_click(self, e):
+        cate_info = e.control.data
+        cate_id = cate_info.get('id')
         self.drawer.open = False
+        await self.query_diary_list(cate_id)
         self.page.update()
-
-    def on_search_note(self, e):
-        # str_keyword = e.control.value
-        # self.page.go(f'/search?text={str_keyword}')
-        self.page.go('/query')
 
     async def get_diary_type_list(self) -> list|None:
         user_id = await self.page.client_storage.get_async('user_id')
@@ -317,14 +365,25 @@ class MainView(Column):
             snack_bar.open = True
             self.page.update()
 
+    async def load_more(self):
+        self.loading = True
+
+        self.page_idx += 1
+        await self.query_diary_list(append_mode='append', cate_id=None)
+
+        snack_bar = SnackBar(Text(f"第{self.page_idx}页加载完成。"))
+        self.page.overlay.append(snack_bar)
+        snack_bar.open = True
+        self.progress_bar.visible = False
+        self.loading = False
+        self.page.update()
+
     def on_list_view_scroll(self, e: OnScrollEvent):
-        # nonlocal loading
-        # # e.pixels: 当前滚动条位置
-        # # e.max_scroll_extent: 最大滚动位置
-        # if e.pixels >= e.max_scroll_extent - 50 and not loading:
-        #     # 距离底部小于50像素时触发加载
-        #     self.page.run_task(load_more)
-        pass
+        # e.pixels: 当前滚动条位置
+        # e.max_scroll_extent: 最大滚动位置
+        if e.pixels >= e.max_scroll_extent - 50 and not self.loading:
+            # 距离底部小于50像素时触发加载
+            self.page.run_task(self.load_more)
 
     async def build_drawer(self):
         token = await self.page.client_storage.get_async('token')
@@ -381,6 +440,7 @@ class MainView(Column):
                     ),
                     selected_tile_color=Colors.BLUE_100,
                     hover_color=Colors.BLUE_50,
+                    data=cate,
                     on_click=self.on_query_category_diary_click,
                 )
             )
@@ -395,10 +455,13 @@ class MainView(Column):
                          leading=Icon(Icons.HELP),
                          on_click=self.on_about_click,
                          ))
-        col_drawer.controls.append(ListTile(title=Text('退出登录'),
-                         leading=Icon(Icons.EXIT_TO_APP),
-                         on_click=self.on_logout,
-                         ))
+        col_drawer.controls.append(
+            ListTile(
+                title=Text('退出登录'),
+                leading=Icon(Icons.EXIT_TO_APP),
+                on_click=self.on_logout,
+            )
+        )
         # return col_drawer
         self.drawer = NavigationDrawer(
             position=NavigationDrawerPosition.START,

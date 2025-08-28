@@ -1,7 +1,8 @@
 # coding:utf-8
-import json
+
 from enum import Enum
 
+import httpx
 from flet import Text, Card, Container, Column, Row, TextButton, TextField, Image, \
     FilledButton, Tabs, Tab, Colors, border_radius, \
     SnackBar
@@ -10,8 +11,6 @@ from flet.core.icons import Icons
 from flet.core.progress_ring import ProgressRing
 from flet.core.safe_area import SafeArea
 from flet.core.types import MainAxisAlignment, CrossAxisAlignment, ImageFit, FontWeight
-
-from api_request import APIRequest
 
 
 class LoginViewStatus(Enum):
@@ -117,7 +116,7 @@ class LoginControl(Column):
         )
         e.page.update()
 
-    def on_send_sms(self, e):
+    async def on_send_sms(self, e):
         # 发送短信验证码
         phone_num = self.str_username
         if not phone_num:
@@ -126,13 +125,27 @@ class LoginControl(Column):
             snack_bar.open = True
             e.control.page.update()
             return
-        req_result = APIRequest.send_sms(phone_num)
-        # if req_result.status_code in [200, 201, 202]:
-        str_msg = req_result.text.replace('"', '')
-        snack_bar = SnackBar(Text(f"{str_msg}"))
-        e.control.page.overlay.append(snack_bar)
-        snack_bar.open = True
-        e.control.page.update()
+        # req_result = APIRequest.send_sms(phone_num)
+        url = 'https://restapi.10qu.com.cn/sms_code/'
+        user_input = {'mobile': phone_num}
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                resp = await client.post(
+                    url,
+                    json=user_input,
+                )
+                resp.raise_for_status()
+                if resp.status_code != 200:
+                    snack_bar = SnackBar(Text("登录失败。"))
+                    e.control.page.overlay.append(snack_bar)
+                    snack_bar.open = True
+                    e.control.page.update()
+                    return
+        except httpx.HTTPError as ex:
+            snack_bar = SnackBar(Text(f"登录失败:{str(ex)}"))
+            e.control.page.overlay.append(snack_bar)
+            snack_bar.open = True
+            e.control.page.update()
 
     def on_tf_phone_num_change(self, e):
         self.str_username = e.control.value
@@ -143,7 +156,7 @@ class LoginControl(Column):
     def on_tf_verify_code_change(self, e):
         self.str_verify_code = e.control.value
 
-    def on_login_click(self, e):
+    async def on_login_click(self, e):
         # 用户名密码登录
         if self.view_status != LoginViewStatus.ViewLoginUsername:
             return
@@ -158,42 +171,51 @@ class LoginControl(Column):
         progress_ring.left = self.page.width / 2 - progress_ring.width / 2
         e.control.page.overlay.append(progress_ring)
         e.control.page.update()
-        # user_name = self.tf_phone_num.value
-        # pass_word = self.tf_password.value
-        # tf_phone_num = self.controls[0].content.content.controls[0]
-        req = APIRequest.login_by_password(self.str_username, self.str_password)
-        json_req = json.loads(req.text)
 
-        if req.status_code != 200 or json_req.get('code') != '0':
-            snack_bar = SnackBar(Text(f"{json_req.get('msg')}"))
+        # req = APIRequest.login_by_password(self.str_username, self.str_password)
+        # json_req = json.loads(req.text)
+        url='https://restapi.10qu.com.cn/username_login/'
+        user_input = {'username': self.str_username,
+                      'password': self.str_password}
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                resp = await client.post(
+                    url,
+                    json=user_input,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                if resp.status_code != 200:
+                    snack_bar = SnackBar(Text(f"{data.get('msg')}"))
+                    e.control.page.overlay.append(snack_bar)
+                    snack_bar.open = True
+                    progress_ring.visible = False
+                    e.control.page.update()
+                    return
+                if data.get('code') != '0':
+                    snack_bar = SnackBar(Text(f"{data.get('msg')}"))
+                    e.control.page.overlay.append(snack_bar)
+                    snack_bar.open = True
+                    progress_ring.visible = False
+                    e.control.page.update()
+                    return
+        except httpx.HTTPError as ex:
+            snack_bar = SnackBar(Text(f"登录失败:{str(ex)}"))
             e.control.page.overlay.append(snack_bar)
             snack_bar.open = True
             progress_ring.visible = False
             e.control.page.update()
-            return
 
-        dct_ret = json_req.get('result')
-        self.page.client_storage.set('username', dct_ret.get('username'))
-        self.page.client_storage.set('user_id', dct_ret.get('user_id'))
-        self.page.client_storage.set('nickname', dct_ret.get('nickname'))
-        self.page.client_storage.set('avatar', dct_ret.get('avatar'))
-        self.page.client_storage.set('token', dct_ret.get('token'))
-        # x = self.page.client_storage.get('nickname')
+        dct_ret = data.get('result')
+        await self.page.client_storage.set_async('username', dct_ret.get('username'))
+        await self.page.client_storage.set_async('user_id', dct_ret.get('user_id'))
+        await self.page.client_storage.set_async('nickname', dct_ret.get('nickname'))
+        await self.page.client_storage.set_async('avatar', dct_ret.get('avatar'))
+        await self.page.client_storage.set_async('token', dct_ret.get('token'))
         # self.page.client_storage.update()
 
-        # self.show_main_interface(dct_ret.get('token'))
-
-        # self.left_drawer = NavigationDrawer(
-        #     controls=[Container(content=NavControl(dct_ret.get('token')),
-        #                         expand=1,
-        #                         padding=padding.only(right=10, top=10, bottom=10),
-        #                         # margin=margin.only(right=10, bottom=10),
-        #                         bgcolor=Colors.WHITE,
-        #                         )]
-        # )
-        # self.page.add(left_drawer)
-        # self.page.drawer = self.left_drawer
-
+        progress_ring.visible = False
+        # 跳转至主界面
         self.page.controls.clear()
         from main_view import MainView
         page_view = SafeArea(
@@ -204,9 +226,8 @@ class LoginControl(Column):
         )
         self.page.controls.append(page_view)
         self.page.update()
-        progress_ring.visible = False
 
-    def on_code_login_click(self, e):
+    async def on_code_login_click(self, e):
         # 短信验证码登录
         if self.view_status != LoginViewStatus.ViewLoginSmsView:
             return
@@ -216,28 +237,63 @@ class LoginControl(Column):
         e.control.page.overlay.append(progress_ring)
         e.control.page.update()
 
-        req = APIRequest.login_by_code(self.str_username, self.str_verify_code)
-        json_req = req
-        if json_req.get('code') != '0':
-            snack_bar = SnackBar(Text(f"{json_req.get('msg')}"))
+        # req = APIRequest.login_by_code(self.str_username, self.str_verify_code)
+        # json_req = req
+
+        url = 'https://restapi.10qu.com.cn/mobile_login/'
+        user_input = {'mobile': self.str_username,
+                      'sms_code': self.str_verify_code}
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                resp = await client.post(
+                    url,
+                    json=user_input,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                if resp.status_code != 200:
+                    snack_bar = SnackBar(Text(f"{data.get('msg')}"))
+                    e.control.page.overlay.append(snack_bar)
+                    snack_bar.open = True
+                    progress_ring.visible = False
+                    e.control.page.update()
+                    return
+                if data.get('code') != '0':
+                    snack_bar = SnackBar(Text(f"{data.get('msg')}"))
+                    e.control.page.overlay.append(snack_bar)
+                    snack_bar.open = True
+                    progress_ring.visible = False
+                    e.control.page.update()
+                    return
+        except httpx.HTTPError as ex:
+            snack_bar = SnackBar(Text(f"登录失败:{str(ex)}"))
             e.control.page.overlay.append(snack_bar)
             snack_bar.open = True
+            progress_ring.visible = False
             e.control.page.update()
-            return
 
-        dct_ret = json_req.get('result')
-        self.page.client_storage.set('username', dct_ret.get('username'))
-        self.page.client_storage.set('user_id', dct_ret.get('user_id'))
-        self.page.client_storage.set('nickname', dct_ret.get('nickname'))
-        self.page.client_storage.set('avatar', dct_ret.get('avatar'))
-        self.page.client_storage.set('token', dct_ret.get('token'))
+        dct_ret = data.get('result')
+        await self.page.client_storage.set_async('username', dct_ret.get('username'))
+        await self.page.client_storage.set_async('user_id', dct_ret.get('user_id'))
+        await self.page.client_storage.set_async('nickname', dct_ret.get('nickname'))
+        await self.page.client_storage.set_async('avatar', dct_ret.get('avatar'))
+        await self.page.client_storage.set_async('token', dct_ret.get('token'))
         # self.page.client_storage.update()
 
-        self.page.go('/main_view')
         progress_ring.visible = False
+        # 跳转至主界面
+        self.page.controls.clear()
+        from main_view import MainView
+        page_view = SafeArea(
+            MainView(self.page),
+            adaptive=True,
+            expand=True
+        )
+        self.page.controls.append(page_view)
+        self.page.update()
 
     # 用户通过用户名密码进行注册
-    def on_reg_click(self, e):
+    async def on_reg_click(self, e):
         if len(self.tf_phone_num.value) == 0 or len(self.tf_pass_1.value) == 0 or len(self.tf_pass_2.value) == 0:
             snack_bar = SnackBar(Text("用户名或密码不得为空！"))
             e.control.page.overlay.append(snack_bar)
@@ -250,16 +306,50 @@ class LoginControl(Column):
             snack_bar.open = True
             e.control.page.update()
             return
-        ret_result = APIRequest.registry(self.tf_phone_num.value, self.tf_pass_1.value)
-        if ret_result.get('code') != '0':
-            snack_bar = SnackBar(Text(f"{ret_result.get('msg')}"))
+        # ret_result = APIRequest.registry(self.tf_phone_num.value, self.tf_pass_1.value)
+        # if ret_result.get('code') != '0':
+        #     snack_bar = SnackBar(Text(f"{ret_result.get('msg')}"))
+        #     e.control.page.overlay.append(snack_bar)
+        #     snack_bar.open = True
+        #     e.control.page.update()
+        #     return
+        e.control.enabled = False
+        url = 'https://restapi.10qu.com.cn/username_register/'
+        user_input = {'username': self.tf_phone_num.value,
+                      'password': self.tf_pass_1.value}
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                resp = await client.post(
+                    url,
+                    json=user_input,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                if resp.status_code != 200:
+                    snack_bar = SnackBar(Text(f"{data.get('msg')}"))
+                    e.control.page.overlay.append(snack_bar)
+                    snack_bar.open = True
+                    e.control.enabled = True
+                    e.control.page.update()
+                    return
+                if data.get('code') != '0':
+                    snack_bar = SnackBar(Text(f"{data.get('msg')}"))
+                    e.control.page.overlay.append(snack_bar)
+                    snack_bar.open = True
+                    e.control.enabled = True
+                    e.control.page.update()
+                    return
+        except httpx.HTTPError as ex:
+            snack_bar = SnackBar(Text(f"登录失败:{str(ex)}"))
             e.control.page.overlay.append(snack_bar)
             snack_bar.open = True
+            e.control.enabled = True
             e.control.page.update()
             return
-        snack_bar = SnackBar(Text(f"{ret_result.get('msg')}, 请跳转至登录页进行登录！"))
+        snack_bar = SnackBar(Text(f"{data.get('msg')}, 请跳转至登录页进行登录！"))
         e.control.page.overlay.append(snack_bar)
         snack_bar.open = True
+        e.control.enabled = True
         e.control.page.update()
         self.page.update()
 
