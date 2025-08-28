@@ -47,11 +47,13 @@ class LoginControl(Column):
     def on_id_code_login_click(self, e):
         # 切换至短信验证码登录
         self.view_status = LoginViewStatus.ViewLoginSmsView
-        tf_verify_code = TextField(label='验证码',
-                                   width=260,
-                                   prefix_icon=Icons.VERIFIED,
-                                   border=InputBorder.OUTLINE,
-                                   on_change=self.on_tf_verify_code_change)
+        tf_verify_code = TextField(
+            label='验证码',
+            width=260,
+            prefix_icon=Icons.VERIFIED,
+            border=InputBorder.OUTLINE,
+            on_change=self.on_tf_verify_code_change
+        )
         card_login_id_code = Card(
             elevation=0,
             content=Container(
@@ -70,18 +72,14 @@ class LoginControl(Column):
                         TextButton('密码登录', on_click=self.on_password_login_click)
                     ]
                 ),
-                # width=400,
                 padding=2,
-                # bgcolor=Colors.TRANSPARENT
             )
         )
         tabs_login = self.controls[0].controls[2].tabs[0]
         tabs_login.content = Container(
                         content=card_login_id_code,
-                        # alignment=alignment.center,
                         padding=5,
                         margin=5,
-                        # bgcolor=Colors.TRANSPARENT
         )
         e.page.update()
 
@@ -109,10 +107,8 @@ class LoginControl(Column):
         tabs_login = self.controls[0].controls[2].tabs[0]
         tabs_login.content = Container(
             content=card_login,
-            # alignment=alignment.center,
             padding=10,
             margin=10,
-            # bgcolor=Colors.TRANSPARENT,
         )
         e.page.update()
 
@@ -125,7 +121,7 @@ class LoginControl(Column):
             snack_bar.open = True
             e.control.page.update()
             return
-        # req_result = APIRequest.send_sms(phone_num)
+        e.control.enabled = False
         url = 'https://restapi.10qu.com.cn/sms_code/'
         user_input = {'mobile': phone_num}
         try:
@@ -139,12 +135,14 @@ class LoginControl(Column):
                     snack_bar = SnackBar(Text("登录失败。"))
                     e.control.page.overlay.append(snack_bar)
                     snack_bar.open = True
+                    e.control.enabled = True
                     e.control.page.update()
                     return
         except httpx.HTTPError as ex:
             snack_bar = SnackBar(Text(f"登录失败:{str(ex)}"))
             e.control.page.overlay.append(snack_bar)
             snack_bar.open = True
+            e.control.enabled = True
             e.control.page.update()
 
     def on_tf_phone_num_change(self, e):
@@ -172,8 +170,7 @@ class LoginControl(Column):
         e.control.page.overlay.append(progress_ring)
         e.control.page.update()
 
-        # req = APIRequest.login_by_password(self.str_username, self.str_password)
-        # json_req = json.loads(req.text)
+        e.control.enabled = False
         url='https://restapi.10qu.com.cn/username_login/'
         user_input = {'username': self.str_username,
                       'password': self.str_password}
@@ -190,6 +187,7 @@ class LoginControl(Column):
                     e.control.page.overlay.append(snack_bar)
                     snack_bar.open = True
                     progress_ring.visible = False
+                    e.control.enabled = True
                     e.control.page.update()
                     return
                 if data.get('code') != '0':
@@ -197,6 +195,7 @@ class LoginControl(Column):
                     e.control.page.overlay.append(snack_bar)
                     snack_bar.open = True
                     progress_ring.visible = False
+                    e.control.enabled = True
                     e.control.page.update()
                     return
         except httpx.HTTPError as ex:
@@ -204,7 +203,9 @@ class LoginControl(Column):
             e.control.page.overlay.append(snack_bar)
             snack_bar.open = True
             progress_ring.visible = False
+            e.control.enabled = True
             e.control.page.update()
+            return
 
         dct_ret = data.get('result')
         await self.page.client_storage.set_async('username', dct_ret.get('username'))
@@ -215,12 +216,12 @@ class LoginControl(Column):
         # self.page.client_storage.update()
 
         progress_ring.visible = False
+        e.control.enabled = True
         # 跳转至主界面
         self.page.controls.clear()
         from main_view import MainView
         page_view = SafeArea(
             MainView(self.page),
-            # maintain_bottom_view_padding=True,
             adaptive=True,
             expand=True
         )
@@ -237,9 +238,7 @@ class LoginControl(Column):
         e.control.page.overlay.append(progress_ring)
         e.control.page.update()
 
-        # req = APIRequest.login_by_code(self.str_username, self.str_verify_code)
-        # json_req = req
-
+        e.control.enabled = False
         url = 'https://restapi.10qu.com.cn/mobile_login/'
         user_input = {'mobile': self.str_username,
                       'sms_code': self.str_verify_code}
@@ -256,6 +255,7 @@ class LoginControl(Column):
                     e.control.page.overlay.append(snack_bar)
                     snack_bar.open = True
                     progress_ring.visible = False
+                    e.control.enabled = True
                     e.control.page.update()
                     return
                 if data.get('code') != '0':
@@ -263,6 +263,7 @@ class LoginControl(Column):
                     e.control.page.overlay.append(snack_bar)
                     snack_bar.open = True
                     progress_ring.visible = False
+                    e.control.enabled = True
                     e.control.page.update()
                     return
         except httpx.HTTPError as ex:
@@ -270,7 +271,9 @@ class LoginControl(Column):
             e.control.page.overlay.append(snack_bar)
             snack_bar.open = True
             progress_ring.visible = False
+            e.control.enabled = True
             e.control.page.update()
+            return
 
         dct_ret = data.get('result')
         await self.page.client_storage.set_async('username', dct_ret.get('username'))
@@ -281,6 +284,7 @@ class LoginControl(Column):
         # self.page.client_storage.update()
 
         progress_ring.visible = False
+        e.control.enabled = True
         # 跳转至主界面
         self.page.controls.clear()
         from main_view import MainView
@@ -306,13 +310,6 @@ class LoginControl(Column):
             snack_bar.open = True
             e.control.page.update()
             return
-        # ret_result = APIRequest.registry(self.tf_phone_num.value, self.tf_pass_1.value)
-        # if ret_result.get('code') != '0':
-        #     snack_bar = SnackBar(Text(f"{ret_result.get('msg')}"))
-        #     e.control.page.overlay.append(snack_bar)
-        #     snack_bar.open = True
-        #     e.control.page.update()
-        #     return
         e.control.enabled = False
         url = 'https://restapi.10qu.com.cn/username_register/'
         user_input = {'username': self.tf_phone_num.value,
@@ -400,7 +397,6 @@ class LoginControl(Column):
                 ),
                 width=400,
                 padding=10,
-                # bgcolor=Colors.WHITE
             )
         )
 
@@ -431,20 +427,16 @@ class LoginControl(Column):
                     text="登录",
                     content=Container(
                         content=card_login,
-                        # alignment=alignment.center,
                         padding=5,
                         margin=5,
-                        # bgcolor=Colors.WHITE
                     ),
                 ),
                 Tab(
                     text="注册",
                     content=Container(
                         content=card_reg,
-                        # alignment=alignment.center,
                         padding=5,
                         margin=5,
-                        # bgcolor=Colors.WHITE
                     ),
                 ),
             ],
@@ -456,7 +448,6 @@ class LoginControl(Column):
             controls = [
                 Container(
                     height=80,  # 控制空白高度
-                    # bgcolor=Colors.WHITE,  # 透明背景
                 ),
                 Row(
                     controls=[
@@ -477,6 +468,4 @@ class LoginControl(Column):
             width=self.page.width,
             height=self.page.height
         )
-
-        # return container_login
         return col_login
