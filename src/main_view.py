@@ -25,6 +25,7 @@ from flet.core.snack_bar import SnackBar
 from flet.core.text import Text
 from flet.core.text_button import TextButton
 from flet.core.types import MainAxisAlignment, CrossAxisAlignment, ImageFit, FontWeight
+from flet.core.vertical_divider import VerticalDivider
 
 from api_request import APIRequest
 
@@ -79,15 +80,31 @@ class MainView(Column):
             bgcolor=Colors.BLUE,
             foreground_color=Colors.WHITE,
             data=0,
-            # bottom=24,
-            # right=16,
             on_click=self.on_fab_pressed,
         )
 
+        self.btn_previous_page = IconButton(
+            icon=Icons.ARROW_LEFT,
+            on_click=self.on_previous_page,
+            disabled=False,
+        )
+        self.btn_next_page = IconButton(
+            icon=Icons.ARROW_RIGHT,
+            on_click=self.on_next_page,
+            disabled=True,
+        )
         self.page.appbar = AppBar(
             title=Text('布尔日记'),
             bgcolor=Colors.BLUE,
             actions=[
+                self.btn_previous_page,
+                self.btn_next_page,
+                # VerticalDivider(
+                #     thickness=2,
+                #     color=Colors.WHITE,
+                #     leading_indent=2,
+                #     trailing_indent=2,
+                # ),
                 IconButton(
                     icon=Icons.SEARCH,
                     on_click=self.on_button_search_click
@@ -105,6 +122,18 @@ class MainView(Column):
         # self.page.drawer = self.drawer
         self.controls = [content, self.dlg_about]
         self.page.run_task(self.query_diary_list)
+
+    async def on_previous_page(self, e):
+        if self.page_idx > 2:
+            self.page_idx -= 1
+        else:
+            self.page_idx = 1
+        await self.query_diary_list(append_mode='restart', cate_id=None)
+
+    async def on_next_page(self, e):
+        self.page_idx += 1
+        await self.query_diary_list(append_mode='restart', cate_id=None)
+
 
     async def query_diary_list(self, append_mode='restart', cate_id=None):
         self.progress_bar.visible = True
@@ -172,6 +201,7 @@ class MainView(Column):
                                 padding=padding.only(left=0, top=3, right=5, bottom=3)
                             ),
                             Column(
+                                expand=True,
                                 controls=[
                                     Row(
                                         controls=[
@@ -206,7 +236,7 @@ class MainView(Column):
                     margin=3,
                     adaptive=True,
                     border_radius=2,
-                    height=80,
+                    # height=80,
                     on_click=self.on_diary_item_click,
                     border=border.only(
                         None, None, None,

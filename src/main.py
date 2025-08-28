@@ -1,5 +1,6 @@
 # coding:utf-8
 import flet
+import httpx
 from flet import Page, Theme
 from flet.core.colors import Colors
 from flet.core.safe_area import SafeArea
@@ -9,7 +10,6 @@ from flet.core.types import VisualDensity, MainAxisAlignment, CrossAxisAlignment
 
 from login_view import LoginControl
 from main_view import MainView
-from api_request import APIRequest
 
 
 def main(page: Page):
@@ -18,9 +18,6 @@ def main(page: Page):
     page.window.icon = '/icons/app_icon.png'
     page.adaptive = True
     page.scroll = ScrollMode.ADAPTIVE
-    # page.padding=padding.only(bottom=28)
-    # page.margin=margin.all(0)
-    # page.padding=padding.only(left=0, right=0, top=10, bottom=10),
     page.platform=PagePlatform.ANDROID
     page.vertical_alignment = MainAxisAlignment.CENTER
     page.horizontal_alignment = CrossAxisAlignment.CENTER
@@ -55,7 +52,7 @@ def main(page: Page):
             case _:
                 page_view = SafeArea(
                     MainView(page),
-                    # maintain_bottom_view_padding=True,
+                    maintain_bottom_view_padding=True,
                     adaptive=True,
                     expand=True
                 )
@@ -66,7 +63,14 @@ def main(page: Page):
     token = page.client_storage.get('token')
     if token is not None:
         token = token.strip('"')
-        dct_ret = APIRequest.query_user_info(token)
+        # dct_ret = APIRequest.query_user_info(token)
+        url = 'https://restapi.10qu.com.cn/user_info/'
+        headers = {'Authorization': f'Bearer {token}'}
+        resp = httpx.get(url, headers=headers)
+        if resp.status_code != 200:
+            switch_page('login_view')
+        json_req = resp.json()
+        dct_ret = json_req.get('results')
         if dct_ret is not None:
             switch_page('main_view')
         else:
