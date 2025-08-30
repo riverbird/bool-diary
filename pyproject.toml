@@ -1,7 +1,7 @@
 [project]
 name = "bool-diary-mobile-2"
 version = "0.1.0"
-description = ""
+description = "布尔日记"
 readme = "README.md"
 requires-python = "==3.12.*"
 authors = [
