@@ -152,6 +152,7 @@ class DiaryEditorView(Column):
         self.page.appbar = AppBar(
             title=Text(''),
             bgcolor=Colors.BLUE,
+            color=Colors.WHITE,
             leading=IconButton(
                 icon=Icons.SAVE,
                 tooltip='保存并返回',

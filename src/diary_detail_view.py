@@ -89,6 +89,7 @@ class DiaryDetailView(Column):
         self.page.appbar = AppBar(
             title=Text(f'{self.diary_info.get("diary_date")}'),
             bgcolor=Colors.BLUE,
+            color=Colors.WHITE,
             leading=IconButton(
                 icon=Icons.ARROW_BACK,
                 tooltip='返回',

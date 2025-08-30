@@ -1,5 +1,8 @@
-import asyncio
-from datetime import datetime, date
+"""
+main_view.py
+"""
+# coding:utf-8
+from datetime import date
 
 import httpx
 from flet import Column, Row, Icons, Colors
@@ -25,7 +28,6 @@ from flet.core.snack_bar import SnackBar
 from flet.core.text import Text
 from flet.core.text_button import TextButton
 from flet.core.types import MainAxisAlignment, CrossAxisAlignment, ImageFit, FontWeight
-from flet.core.vertical_divider import VerticalDivider
 
 from api_request import APIRequest
 
@@ -86,16 +88,17 @@ class MainView(Column):
         self.btn_previous_page = IconButton(
             icon=Icons.ARROW_LEFT,
             on_click=self.on_previous_page,
-            disabled=False,
+            disabled=True,
         )
         self.btn_next_page = IconButton(
             icon=Icons.ARROW_RIGHT,
             on_click=self.on_next_page,
-            disabled=True,
+            disabled=False,
         )
         self.page.appbar = AppBar(
-            title=Text('布尔日记'),
+            title=Text('布尔日记', color=Colors.WHITE),
             bgcolor=Colors.BLUE,
+            color=Colors.WHITE,
             actions=[
                 self.btn_previous_page,
                 self.btn_next_page,
@@ -109,10 +112,10 @@ class MainView(Column):
                     icon=Icons.SEARCH,
                     on_click=self.on_button_search_click
                 ),
-                IconButton(
-                    icon=Icons.REFRESH,
-                    on_click=self.on_button_refresh_click
-                ),
+                # IconButton(
+                #     icon=Icons.REFRESH,
+                #     on_click=self.on_button_refresh_click
+                # ),
             ],
         )
 
@@ -126,12 +129,18 @@ class MainView(Column):
     async def on_previous_page(self, e):
         if self.page_idx > 2:
             self.page_idx -= 1
+            self.btn_previous_page.disabled = False
+            self.page.appbar.update()
         else:
             self.page_idx = 1
+            self.btn_previous_page.disabled = True
+            self.page.appbar.update()
         await self.query_diary_list(append_mode='restart', cate_id=None)
 
     async def on_next_page(self, e):
         self.page_idx += 1
+        self.btn_previous_page.disabled = False
+        self.page.appbar.update()
         await self.query_diary_list(append_mode='restart', cate_id=None)
 
 
@@ -190,8 +199,20 @@ class MainView(Column):
                     continue
                 diary_date = diary.get('diary_date')
                 diary_text = diary.get('diary_text')[:200]
+                diary_weather = diary.get('diary_weather')
                 diary_location = diary.get('diary_location')
                 diary_item = Container(
+                    data=diary,
+                    margin=3,
+                    adaptive=True,
+                    border_radius=2,
+                    # height=80,
+                    on_click=self.on_diary_item_click,
+                    border=border.only(
+                        None, None, None,
+                        BorderSide(1, Colors.GREY_200, BorderSideStrokeAlign.OUTSIDE)),
+                    shadow=BoxShadow(spread_radius=0, blur_radius=0,
+                                     color=Colors.WHITE, offset=(1, 1)),
                     content=Row(
                         controls=[
                             Container(
@@ -207,46 +228,45 @@ class MainView(Column):
                                         controls=[
                                             Text(
                                                 value=diary_date,
-                                                size=12,
-                                                color=Colors.BLUE_600
+                                                size=14,
+                                                weight=FontWeight.BOLD,
+                                                color=Colors.BLUE_600,
                                             ),
                                             Container(expand=True),
                                             Text(
                                                 value=diary_weather,
-                                                size=12,
-                                                color=Colors.BLUE_600
+                                                size=14,
+                                                # bgcolor=Colors.ORANGE_600,
+                                                color=Colors.BLACK54
                                             ),
+                                        ]
+                                    ),
+                                    Text(
+                                        value=diary_text,
+                                        size=16,
+                                        no_wrap=False,
+                                        color=Colors.BLACK87
+                                    ),
+                                    Row(
+                                        alignment=MainAxisAlignment.START,
+                                        controls=[
                                             Text(
                                                 value=diary_location,
                                                 no_wrap=False,
-                                                size=12,
-                                                color=Colors.BLUE_600),
-                                        ]
+                                                size=14,
+                                                bgcolor=Colors.GREEN_600,
+                                                color=Colors.WHITE
+                                            ),
+                                        ],
                                     ),
-                                Text(value=diary_text,
-                                     size=16,
-                                     no_wrap=False,
-                                     color=Colors.BLACK87),
-
                                 ],
                             ),
                         ],
                     ),
-                    data=diary,
-                    margin=3,
-                    adaptive=True,
-                    border_radius=2,
-                    # height=80,
-                    on_click=self.on_diary_item_click,
-                    border=border.only(
-                        None, None, None,
-                        BorderSide(1, Colors.GREY_200, BorderSideStrokeAlign.OUTSIDE)),
-                    shadow=BoxShadow(spread_radius=0, blur_radius=0,
-                                     color=Colors.WHITE, offset=(1,1)),
                 )
                 self.note_list.controls.append(diary_item)
-                self.page.update()
                 self.progress_bar.visible = False
+                self.page.update()
         except httpx.HTTPError as e:
             snack_bar = SnackBar(Text(f"查询用户日记列表请求失败，请刷新重试。{str(e)}"))
             self.page.overlay.append(snack_bar)
@@ -268,8 +288,9 @@ class MainView(Column):
         self.page.controls.append(page_view)
         self.page.update()
 
-    def on_button_refresh_click(self, e):
-        self.page.run_task(self.query_diary_list)
+    async def on_button_refresh_click(self, e):
+        # self.page.run_task(self.query_diary_list)
+        await self.query_diary_list(append_mode='restart', cate_id=None)
 
     def on_button_search_click(self, e):
         self.page.controls.clear()
@@ -361,16 +382,16 @@ class MainView(Column):
             self.page.update()
 
     async def on_query_all_diary_click(self, e):
-        await self.query_diary_list()
-        self.drawer.open = False
+        self.page.drawer.open = False
         self.page.update()
+        await self.query_diary_list(append_mode='restart', cate_id=None)
 
     async def on_query_category_diary_click(self, e):
         cate_info = e.control.data
         cate_id = cate_info.get('id')
-        self.drawer.open = False
-        await self.query_diary_list(cate_id)
+        self.page.drawer.open = False
         self.page.update()
+        await self.query_diary_list(append_mode='restart', cate_id=cate_id)
 
     async def get_diary_type_list(self) -> list|None:
         user_id = await self.page.client_storage.get_async('user_id')
@@ -417,19 +438,44 @@ class MainView(Column):
 
     async def build_drawer(self):
         token = await self.page.client_storage.get_async('token')
-        user_info = APIRequest.query_user_info(token)
-        avatar_url = user_info.get('avatar_url', f'/icons/head.png')
-        text_user = Text(
-            user_info.get('nick_name', '用户名'),
-            size=14,
-            color=Colors.WHITE
-        )
-        img_avatar = Image(src=avatar_url,
-                           width=32,
-                           height=32,
-                           fit=ImageFit.CONTAIN,
-                           border_radius=border_radius.all(30)
-        )
+        # user_info = APIRequest.query_user_info(token)
+        url='https://restapi.10qu.com.cn/user_info/'
+        headers = {'Authorization': f'Bearer {token}'}
+        try:
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                resp = await client.get(
+                    url,
+                    headers=headers,
+                )
+                resp.raise_for_status()
+                if resp.status_code != 200:
+                    snack_bar = SnackBar(Text("获取用户信息失败."))
+                    self.page.overlay.append(snack_bar)
+                    snack_bar.open = True
+                    self.page.update()
+                    user_info = {}
+                else:
+                    data = resp.json()
+                    user_info = data.get('results')
+                    avatar_url = user_info.get('avatar_url', 'assets/default_avatar.png')
+                text_user = Text(
+                    user_info.get('nick_name', '用户名'),
+                    size=14,
+                    color=Colors.WHITE
+                )
+                img_avatar = Image(
+                    src=avatar_url,
+                    width=32,
+                    height=32,
+                    fit=ImageFit.CONTAIN,
+                    border_radius=border_radius.all(30)
+                )
+        except httpx.HTTPError as ex:
+            snack_bar = SnackBar(Text(f"获取用户信息失败：{str(ex)}"))
+            self.page.overlay.append(snack_bar)
+            snack_bar.open = True
+            self.page.update()
+
         head = Container(
             content=Row(
                 controls=[img_avatar,
@@ -515,7 +561,7 @@ class MainView(Column):
             padding=padding.only(left=2, top=5, right=2, bottom=5),
             expand=True,
             # height=self.page.height - 10,
-            on_scroll= self.on_list_view_scroll,
+            # on_scroll= self.on_list_view_scroll,
         )
 
         self.progress_bar = ProgressBar(
@@ -535,10 +581,10 @@ class MainView(Column):
                     size=16,
                     weight=FontWeight.BOLD,
                 ),
+                self.progress_bar,
                 self.note_list,
-                self.progress_bar
             ],
-            alignment=MainAxisAlignment.START,
+            alignment=MainAxisAlignment.SPACE_BETWEEN,
             horizontal_alignment=CrossAxisAlignment.START,
             adaptive=True,
             width=self.page.width,

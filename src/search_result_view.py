@@ -26,6 +26,7 @@ class SearchResultView(Column):
         self.page.appbar = AppBar(
             title=Text(f'搜索结果:{self.str_keyword}'),
             bgcolor=Colors.BLUE,
+            color=Colors.WHITE,
             leading=IconButton(
                 icon=Icons.ARROW_BACK,
                 tooltip='返回',

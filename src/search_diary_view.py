@@ -34,6 +34,7 @@ class SearchDiaryView(Column):
         self.page.appbar = AppBar(
             title=tf_search,
             bgcolor=Colors.BLUE,
+            color=Colors.WHITE,
             leading=IconButton(
                 icon=Icons.ARROW_BACK,
                 tooltip='返回',

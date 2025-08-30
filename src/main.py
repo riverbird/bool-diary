@@ -27,17 +27,20 @@ def main(page: Page):
         font_family='微软雅黑',
         date_picker_theme=DatePickerTheme(locale=Locale('zh', 'CN')),
         visual_density=VisualDensity.ADAPTIVE_PLATFORM_DENSITY,
+        use_material3=True,
         system_overlay_style=SystemOverlayStyle(
             status_bar_color=Colors.BLACK,  # 状态栏背景设为黑色
             status_bar_brightness=Brightness.DARK,  # 适用于 iOS（整个状态栏亮模式）
-            status_bar_icon_brightness=Brightness.LIGHT,),
-        use_material3=False)
+            status_bar_icon_brightness=Brightness.LIGHT,
+        ),
+    )
     page.dark_theme = Theme(
         color_scheme_seed="green",
         font_family='微软雅黑',
         date_picker_theme=DatePickerTheme(locale=Locale('zh', 'CN')),
         visual_density=VisualDensity.ADAPTIVE_PLATFORM_DENSITY,
-        use_material3=False)
+        use_material3=True
+    )
 
     def switch_page(page_flag:str):
         page.controls.clear()
@@ -63,17 +66,19 @@ def main(page: Page):
     token = page.client_storage.get('token')
     if token is not None:
         token = token.strip('"')
-        # dct_ret = APIRequest.query_user_info(token)
         url = 'https://restapi.10qu.com.cn/user_info/'
         headers = {'Authorization': f'Bearer {token}'}
-        resp = httpx.get(url, headers=headers)
-        if resp.status_code != 200:
-            switch_page('login_view')
-        json_req = resp.json()
-        dct_ret = json_req.get('results')
-        if dct_ret is not None:
-            switch_page('main_view')
-        else:
+        try:
+            resp = httpx.get(url, headers=headers)
+            if resp.status_code != 200:
+                switch_page('login_view')
+            json_req = resp.json()
+            dct_ret = json_req.get('results')
+            if dct_ret is not None:
+                switch_page('main_view')
+            else:
+                switch_page('login_view')
+        except httpx.HTTPError as e:
             switch_page('login_view')
     else:
         switch_page('login_view')
