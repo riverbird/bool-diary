@@ -29,8 +29,6 @@ from flet.core.text import Text
 from flet.core.text_button import TextButton
 from flet.core.types import MainAxisAlignment, CrossAxisAlignment, ImageFit, FontWeight
 
-from api_request import APIRequest
-
 
 class MainView(Column):
     def __init__(self, page):

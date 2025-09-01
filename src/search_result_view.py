@@ -196,8 +196,8 @@ class SearchResultView(Column):
         )
         col_notes = Column(
             controls = [
+                self.progress_bar,
                 self.note_list,
-                self.progress_bar
             ],
             alignment=MainAxisAlignment.START,
             horizontal_alignment=CrossAxisAlignment.START,
