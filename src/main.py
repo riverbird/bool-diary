@@ -27,7 +27,7 @@ def main(page: Page):
         font_family='微软雅黑',
         date_picker_theme=DatePickerTheme(locale=Locale('zh', 'CN')),
         visual_density=VisualDensity.ADAPTIVE_PLATFORM_DENSITY,
-        use_material3=True,
+        use_material3=False,
         system_overlay_style=SystemOverlayStyle(
             status_bar_color=Colors.BLACK,  # 状态栏背景设为黑色
             status_bar_brightness=Brightness.DARK,  # 适用于 iOS（整个状态栏亮模式）
@@ -39,7 +39,7 @@ def main(page: Page):
         font_family='微软雅黑',
         date_picker_theme=DatePickerTheme(locale=Locale('zh', 'CN')),
         visual_density=VisualDensity.ADAPTIVE_PLATFORM_DENSITY,
-        use_material3=True
+        use_material3=False
     )
 
     def switch_page(page_flag:str):
@@ -86,7 +86,9 @@ def main(page: Page):
     page.window.center()
 
 
-flet.app(
-    target=main,
-    assets_dir='../assets',
-    view=flet.AppView.FLET_APP)
+if __name__ == '__main__':
+    flet.app(
+        target=main,
+        assets_dir='../assets',
+        view=flet.AppView.FLET_APP
+    )

@@ -93,10 +93,12 @@ class LoginControl(Column):
                     [
                         self.tf_phone_num,
                         self.tf_password,
-                        FilledButton(text='登录',
-                                     icon=Icons.LOGIN,
-                                     width=400,
-                                     on_click=self.on_login_click),
+                        FilledButton(
+                            text='登录',
+                            icon=Icons.LOGIN,
+                            width=400,
+                            on_click=self.on_login_click
+                        ),
                         TextButton('验证码登录', on_click=self.on_id_code_login_click)
                     ]
                 ),
@@ -351,33 +353,40 @@ class LoginControl(Column):
         self.page.update()
 
     def build_interface(self):
-        self.tf_phone_num = TextField(label='手机号',
-                                      prefix_icon=Icons.PHONE,
-                                      border=InputBorder.OUTLINE,
-                                      # value='13588459825',
-                                      on_change=self.on_tf_phone_num_change,
-                                      )
-        self.tf_password = TextField(label='密码',
-                                     prefix_icon=Icons.PASSWORD,
-                                     border=InputBorder.OUTLINE,
-                                     # value='iloveyou365',
-                                     password=True,
-                                     can_reveal_password=True,
-                                     on_change=self.on_tf_password_change)
-        self.tf_verify_code = TextField(label='验证码',
-                                        prefix_icon=Icons.VERIFIED,
-                                        border=InputBorder.OUTLINE,
-                                        on_change=self.on_tf_verify_code_change)
-        self.tf_pass_1 = TextField(label='请输入密码',
-                                   prefix_icon=Icons.PASSWORD,
-                                   border=InputBorder.OUTLINE,
-                                   password=True,
-                                   can_reveal_password=True)
-        self.tf_pass_2 = TextField(label='请确认密码',
-                                   prefix_icon=Icons.PASSWORD,
-                                   border=InputBorder.OUTLINE,
-                                   password=True,
-                                   can_reveal_password=True)
+        self.tf_phone_num = TextField(
+            label='手机号',
+            prefix_icon=Icons.PHONE,
+           border=InputBorder.OUTLINE,
+           on_change=self.on_tf_phone_num_change,
+        )
+        self.tf_password = TextField(
+            label='密码',
+            prefix_icon=Icons.PASSWORD,
+            border=InputBorder.OUTLINE,
+            password=True,
+            can_reveal_password=True,
+            on_change=self.on_tf_password_change
+        )
+        self.tf_verify_code = TextField(
+            label='验证码',
+            prefix_icon=Icons.VERIFIED,
+            border=InputBorder.OUTLINE,
+            on_change=self.on_tf_verify_code_change
+        )
+        self.tf_pass_1 = TextField(
+            label='请输入密码',
+            prefix_icon=Icons.PASSWORD,
+            border=InputBorder.OUTLINE,
+            password=True,
+            can_reveal_password=True
+        )
+        self.tf_pass_2 = TextField(
+            label='请确认密码',
+            prefix_icon=Icons.PASSWORD,
+            border=InputBorder.OUTLINE,
+            password=True,
+            can_reveal_password=True
+        )
         card_login = Card(
             elevation=0,
             content=Container(
@@ -385,14 +394,18 @@ class LoginControl(Column):
                     [
                         self.tf_phone_num,
                         self.tf_password,
-                        FilledButton(text='登录',
-                                     icon=Icons.LOGIN,
-                                     # width=400,
-                                     # expand=True,
-                                     on_click=self.on_login_click),
-                        TextButton(text='验证码登录',
-                                   disabled=False,
-                                   on_click=self.on_id_code_login_click)
+                        FilledButton(
+                            text='登录',
+                            icon=Icons.LOGIN,
+                            # width=400,
+                            # expand=True,
+                            on_click=self.on_login_click
+                        ),
+                        TextButton(
+                            text='验证码登录',
+                            disabled=False,
+                            on_click=self.on_id_code_login_click
+                        )
                     ],
                 ),
                 width=400,
@@ -408,10 +421,12 @@ class LoginControl(Column):
                         self.tf_phone_num,
                         self.tf_pass_1,
                         self.tf_pass_2,
-                        FilledButton(text='注册',
-                                     width=400,
-                                     icon=Icons.APP_REGISTRATION,
-                                     on_click=self.on_reg_click),
+                        FilledButton(
+                            text='注册',
+                            width=400,
+                            icon=Icons.APP_REGISTRATION,
+                            on_click=self.on_reg_click
+                        ),
                     ]
                 ),
                 width=400,

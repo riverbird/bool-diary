@@ -1,6 +1,7 @@
 """
 main_view.py
 """
+import json
 # coding:utf-8
 from datetime import date
 
@@ -204,6 +205,7 @@ class MainView(Column):
                     margin=3,
                     adaptive=True,
                     border_radius=2,
+                    padding=padding.only(left=5, top=5, right=5, bottom=5),
                     # height=80,
                     on_click=self.on_diary_item_click,
                     border=border.only(
@@ -392,6 +394,10 @@ class MainView(Column):
         await self.query_diary_list(append_mode='restart', cate_id=cate_id)
 
     async def get_diary_type_list(self) -> list|None:
+        cached_diary_type_list_value = await self.page.client_storage.get_async('diary_type_list')
+        cached_diary_type_list = json.loads(cached_diary_type_list_value) if cached_diary_type_list_value else []
+        if cached_diary_type_list:
+            return cached_diary_type_list
         user_id = await self.page.client_storage.get_async('user_id')
         token = await self.page.client_storage.get_async('token')
         url = f'https://restapi.10qu.com.cn/diarytype?user={user_id}'
@@ -407,6 +413,8 @@ class MainView(Column):
                     return None
                 data = resp.json()
                 lst_category = data.get('results')
+                cached_diary_type_list_str = json.dumps(lst_category)
+                await self.page.client_storage.set_async('diary_type_list', cached_diary_type_list_str)
                 return lst_category
         except httpx.HTTPError as e:
             snack_bar = SnackBar(Text(f"查询用户日记类型请求失败:{str(e)}"))
@@ -435,44 +443,57 @@ class MainView(Column):
             self.page.run_task(self.load_more)
 
     async def build_drawer(self):
-        token = await self.page.client_storage.get_async('token')
-        # user_info = APIRequest.query_user_info(token)
-        url='https://restapi.10qu.com.cn/user_info/'
-        headers = {'Authorization': f'Bearer {token}'}
-        try:
-            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-                resp = await client.get(
-                    url,
-                    headers=headers,
-                )
-                resp.raise_for_status()
-                if resp.status_code != 200:
-                    snack_bar = SnackBar(Text("获取用户信息失败."))
-                    self.page.overlay.append(snack_bar)
-                    snack_bar.open = True
-                    self.page.update()
-                    user_info = {}
-                else:
-                    data = resp.json()
-                    user_info = data.get('results')
-                    avatar_url = user_info.get('avatar_url', 'assets/default_avatar.png')
-                text_user = Text(
-                    user_info.get('nick_name', '用户名'),
-                    size=14,
-                    color=Colors.WHITE
-                )
-                img_avatar = Image(
-                    src=avatar_url,
-                    width=32,
-                    height=32,
-                    fit=ImageFit.CONTAIN,
-                    border_radius=border_radius.all(30)
-                )
-        except httpx.HTTPError as ex:
-            snack_bar = SnackBar(Text(f"获取用户信息失败：{str(ex)}"))
-            self.page.overlay.append(snack_bar)
-            snack_bar.open = True
-            self.page.update()
+        cached_user_info_value = await self.page.client_storage.get_async('diary_user_info')
+        cached_user_info = json.loads(cached_user_info_value) if cached_user_info_value else {}
+        if cached_user_info:
+            avatar_url = cached_user_info.get('avatar_url', 'assets/default_avatar.png')
+            nick_name = cached_user_info.get('nick_name', '用户名')
+        else:
+            token = await self.page.client_storage.get_async('token')
+            # user_info = APIRequest.query_user_info(token)
+            url='https://restapi.10qu.com.cn/user_info/'
+            headers = {'Authorization': f'Bearer {token}'}
+            try:
+                async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                    resp = await client.get(
+                        url,
+                        headers=headers,
+                    )
+                    resp.raise_for_status()
+                    if resp.status_code != 200:
+                        snack_bar = SnackBar(Text("获取用户信息失败."))
+                        self.page.overlay.append(snack_bar)
+                        snack_bar.open = True
+                        avatar_url = 'assets/default_avatar.png'
+                        nick_name = '未知'
+                        self.page.update()
+                    else:
+                        data = resp.json()
+                        user_info = data.get('results')
+                        avatar_url = user_info.get('avatar_url', 'assets/default_avatar.png')
+                        nick_name = user_info.get('nick_name', '')
+                        cached_user_info_str = json.dumps(user_info)
+                        await self.page.client_storage.set_async('dairy_user_info', cached_user_info_str)
+            except httpx.HTTPError as ex:
+                snack_bar = SnackBar(Text(f"获取用户信息失败：{str(ex)}"))
+                self.page.overlay.append(snack_bar)
+                snack_bar.open = True
+                avatar_url = 'assets/default_avatar.png'
+                nick_name = '未知'
+                self.page.update()
+
+        text_user = Text(
+            nick_name,
+            size=14,
+            color=Colors.WHITE
+        )
+        img_avatar = Image(
+            src=avatar_url,
+            width=32,
+            height=32,
+            fit=ImageFit.CONTAIN,
+            border_radius=border_radius.all(30)
+        )
 
         head = Container(
             content=Row(

@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime
 
 import httpx
@@ -330,6 +331,10 @@ class DiaryEditorView(Column):
         self.page.update()
 
     def get_diary_type_list(self) -> list|None:
+        cached_diary_type_list_value = self.page.client_storage.get('diary_type_list')
+        cached_diary_type_list = json.loads(cached_diary_type_list_value) if cached_diary_type_list_value else []
+        if cached_diary_type_list:
+            return cached_diary_type_list
         user_id = self.page.client_storage.get('user_id')
         token = self.page.client_storage.get('token')
         url = f'https://restapi.10qu.com.cn/diarytype?user={user_id}'
@@ -340,6 +345,8 @@ class DiaryEditorView(Column):
         resp.raise_for_status()
         data = resp.json()
         lst_category = data.get('results')
+        cached_diary_type_list_str = json.dumps(lst_category)
+        self.page.client_storage.set('diary_type_list', cached_diary_type_list_str)
         return lst_category
 
     def on_date_picker_changed(self, e):

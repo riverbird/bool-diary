@@ -102,6 +102,7 @@ class DiaryDetailView(Column):
 
         self.page.floating_action_button = floating_btn
         self.page.drawer = None
+        self.page.bottom_appbar = None
         self.controls = [content, self.dlg_info, self.dlg_delete_confirm]
 
     def on_fab_pressed(self, e):
