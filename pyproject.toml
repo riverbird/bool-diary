@@ -3,9 +3,9 @@ name = "bool-diary-mobile-2"
 version = "0.1.0"
 description = "布尔日记"
 readme = "README.md"
-requires-python = "==3.12.*"
+requires-python = "==3.13.*"
 authors = [
-    { name = "Flet developer", email = "you@example.com" }
+    { name = "Hunter Zhang", email = "riverbird@aliyun.com" }
 ]
 dependencies = [
     "flet==0.28.3",
@@ -17,7 +17,7 @@ dependencies = [
 [tool.flet]
 # org name in reverse domain name notation, e.g. "com.mycompany".
 # Combined with project.name to build bundle ID for iOS and Android apps
-org = "com.mycompany"
+org = "com.superiot"
 
 # project display name that is used as an app title on Android and iOS home screens,
 # shown in window titles and about app dialogs on desktop.
@@ -36,6 +36,16 @@ path = "src"
 split_per_abi = true
 # abi_filters = ["arm64-v8a"]  # 指定支持的架构, "armeabi-v7a",
 assets = ["assets"]
+
+[tool.flet.splash]   # 原生层
+#color   = "#FFFFFF"
+image   = "assets/splash_android.png"
+android = true
+#ios     = true
+
+#[tool.flet.boot]     # Python 层
+#color   = "#FFFFFF"
+#image   = "assets/icon.png"
 
 [tool.uv]
 dev-dependencies = [
