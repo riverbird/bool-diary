@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Bool Diary
+Name[zh_CN]=布尔日记
+Comment=Bool Diary Mobile (Linux Build)
+Exec=/usr/local/bool-diary/bool_diary_mobile_2
+Icon=/usr/local/bool-diary/bool-diary.png
+Terminal=false
+Type=Application
+Categories=Office;
+
