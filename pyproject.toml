@@ -36,6 +36,8 @@ path = "src"
 split_per_abi = true
 # abi_filters = ["arm64-v8a"]  # 指定支持的架构, "armeabi-v7a",
 assets = ["assets"]
+min_sdk_version = 24
+target_sdk_version = 35
 
 [tool.flet.splash]   # 原生层
 #color   = "#FFFFFF"
