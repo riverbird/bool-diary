@@ -1,8 +1,8 @@
 """
 main_view.py
 """
-import json
 # coding:utf-8
+import json
 from datetime import date
 
 import httpx
@@ -49,7 +49,7 @@ class MainView(Column):
             title=Text('关于'),
             content=Column(
                 controls=[Divider(height=1, color='gray'),
-                          Text('布尔日记v0.1.0'),
+                          Text('布尔日记v0.2.0'),
                           Text('浙江舒博特网络科技有限公司 出品'),
                           Text('官网: http://https://www.zjsbt.cn/service/derivatives'),
                           ],
@@ -84,29 +84,27 @@ class MainView(Column):
             on_click=self.on_fab_pressed,
         )
 
-        self.btn_previous_page = IconButton(
-            icon=Icons.ARROW_LEFT,
-            on_click=self.on_previous_page,
-            disabled=True,
-        )
-        self.btn_next_page = IconButton(
-            icon=Icons.ARROW_RIGHT,
-            on_click=self.on_next_page,
-            disabled=False,
-        )
+        # self.btn_previous_page = IconButton(
+        #     icon=Icons.ARROW_LEFT,
+        #     on_click=self.on_previous_page,
+        #     disabled=True,
+        # )
+        # self.btn_next_page = IconButton(
+        #     icon=Icons.ARROW_RIGHT,
+        #     on_click=self.on_next_page,
+        #     disabled=False,
+        # )
         self.page.appbar = AppBar(
             title=Text('布尔日记', color=Colors.WHITE),
             bgcolor=Colors.BLUE,
             color=Colors.WHITE,
             actions=[
-                self.btn_previous_page,
-                self.btn_next_page,
-                # VerticalDivider(
-                #     thickness=2,
-                #     color=Colors.WHITE,
-                #     leading_indent=2,
-                #     trailing_indent=2,
-                # ),
+                # self.btn_previous_page,
+                # self.btn_next_page,
+                IconButton(
+                    icon=Icons.REFRESH,
+                    on_click=self.on_button_refresh_click
+                ),
                 IconButton(
                     icon=Icons.SEARCH,
                     on_click=self.on_button_search_click
@@ -247,6 +245,9 @@ class MainView(Column):
                                         no_wrap=False,
                                         color=Colors.BLACK87
                                     ),
+                                    # Markdown(
+                                    #     value=diary_text,
+                                    # ),
                                     Row(
                                         alignment=MainAxisAlignment.START,
                                         controls=[
@@ -265,8 +266,12 @@ class MainView(Column):
                     ),
                 )
                 self.note_list.controls.append(diary_item)
-                self.progress_bar.visible = False
-                self.page.update()
+            if len(lst_diary) == 10:
+                self.btn_load_more.visible = True
+            else:
+                self.btn_load_more.visible = False
+            self.progress_bar.visible = False
+            self.page.update()
         except httpx.HTTPError as e:
             snack_bar = SnackBar(Text(f"查询用户日记列表请求失败，请刷新重试。{str(e)}"))
             self.page.overlay.append(snack_bar)
@@ -290,7 +295,14 @@ class MainView(Column):
 
     async def on_button_refresh_click(self, e):
         # self.page.run_task(self.query_diary_list)
+        self.loading = True
+        self.page_idx = 1
         await self.query_diary_list(append_mode='restart', cate_id=None)
+        snack_bar = SnackBar(Text(f"第{self.page_idx}页加载完成。"))
+        self.page.overlay.append(snack_bar)
+        snack_bar.open = True
+        self.loading = False
+        self.page.update()
 
     def on_button_search_click(self, e):
         self.page.controls.clear()
@@ -422,8 +434,14 @@ class MainView(Column):
             snack_bar.open = True
             self.page.update()
 
+    def load_next_page(self, e):
+        self.page.run_task(self.load_more)
+
     async def load_more(self):
         self.loading = True
+        self.progress_bar.visible = True
+        self.btn_load_more.visible = False
+        self.progress_ring.visible = True
 
         self.page_idx += 1
         await self.query_diary_list(append_mode='append', cate_id=None)
@@ -432,6 +450,8 @@ class MainView(Column):
         self.page.overlay.append(snack_bar)
         snack_bar.open = True
         self.progress_bar.visible = False
+        self.btn_load_more.visible = True
+        self.progress_ring.visible = False
         self.loading = False
         self.page.update()
 
@@ -591,6 +611,17 @@ class MainView(Column):
             width=self.page.width
         )
 
+        self.btn_load_more = IconButton(
+            icon=Icons.ARROW_DOWNWARD_OUTLINED,
+            on_click=self.load_next_page,
+            visible=False,
+        )
+        self.progress_ring = ProgressRing(
+            width=28,
+            height=28,
+            visible=False,
+        )
+
         today = date.today()
         str_today = f'{today.year}年{today.month}月{today.day}日,{['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'][today.weekday()]}'
         col_notes = Column(
@@ -602,6 +633,8 @@ class MainView(Column):
                 ),
                 self.progress_bar,
                 self.note_list,
+                Row([self.btn_load_more, self.progress_ring],
+                    alignment=MainAxisAlignment.CENTER)
             ],
             alignment=MainAxisAlignment.SPACE_BETWEEN,
             horizontal_alignment=CrossAxisAlignment.START,

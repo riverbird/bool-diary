@@ -1,6 +1,9 @@
 """
 diary_detail_view.py
 """
+import json
+from datetime import datetime, date
+
 import httpx
 from flet.core.alert_dialog import AlertDialog
 from flet.core.app_bar import AppBar
@@ -12,6 +15,7 @@ from flet.core.icon_button import IconButton
 from flet.core.icons import Icons
 from flet.core.list_view import ListView
 from flet.core.popup_menu_button import PopupMenuButton, PopupMenuItem
+from flet.core.row import Row
 from flet.core.safe_area import SafeArea
 from flet.core.snack_bar import SnackBar
 from flet.core.text import Text
@@ -23,6 +27,13 @@ class DiaryDetailView(Column):
         super().__init__()
         self.page = page
         self.diary_info = diary_info
+        self.diary_date = diary_info.get('diary_date') if self.diary_info is not None else date.today().strftime(
+            '%Y-%m-%d')
+        self.diary_mood = diary_info.get('diary_mood') if self.diary_info is not None else 0
+        self.diary_weather = diary_info.get('diary_weather') if self.diary_info is not None else '晴'
+        self.diary_location = diary_info.get('diary_location') if self.diary_info is not None else ''
+        self.diary_category_list = self.get_diary_type_list()
+        self.diary_type = diary_info.get('diary_type') if self.diary_info is not None else None
         content = self.build_interface()
 
         # 删除对话框
@@ -104,6 +115,25 @@ class DiaryDetailView(Column):
         self.page.drawer = None
         self.page.bottom_appbar = None
         self.controls = [content, self.dlg_info, self.dlg_delete_confirm]
+
+    def get_diary_type_list(self) -> list|None:
+        cached_diary_type_list_value = self.page.client_storage.get('diary_type_list')
+        cached_diary_type_list = json.loads(cached_diary_type_list_value) if cached_diary_type_list_value else []
+        if cached_diary_type_list:
+            return cached_diary_type_list
+        user_id = self.page.client_storage.get('user_id')
+        token = self.page.client_storage.get('token')
+        url = f'https://restapi.10qu.com.cn/diarytype?user={user_id}'
+        headers = {"Authorization": f'Bearer {token}'}
+        resp = httpx.get(url, headers=headers, follow_redirects=True)
+        if resp.status_code != 200:
+            return None
+        resp.raise_for_status()
+        data = resp.json()
+        lst_category = data.get('results')
+        cached_diary_type_list_str = json.dumps(lst_category)
+        self.page.client_storage.set('diary_type_list', cached_diary_type_list_str)
+        return lst_category
 
     def on_fab_pressed(self, e):
         self.page.controls.clear()
@@ -189,11 +219,70 @@ class DiaryDetailView(Column):
             no_wrap=False,
             expand=True,
         )
+        # self.note_view = Markdown(
+        #     value=self.diary_info.get('diary_text'),
+        #     expand=True
+        # )
+        if self.diary_info is not None:
+            today = datetime.strptime(self.diary_date, '%Y-%m-%d')
+        else:
+            today = date.today()
+        str_today = f'{today.year}年{today.month}月{today.day}日,{['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'][today.weekday()]}'
+        mood_set = (
+            '普通',
+            '微笑',
+            '开心',
+            '难过',
+            '调皮',
+            '偷着乐',
+            '惊讶',
+            '酷',
+            '无奈',
+            '难受',
+            '怒',
+            '大哭',
+            '紧张'
+        )
+        if self.diary_category_list:
+            diary_category_name = next(
+                (opt.get('type_name') for opt in self.diary_category_list if opt.get('id') == self.diary_type),
+                '分类'
+            )
+        else:
+            diary_category_name = '分类'
+        buttons_row = Row(
+            controls=[
+                TextButton(
+                    str_today,
+                    icon=Icons.CALENDAR_TODAY,
+                ),
+                TextButton(
+                    mood_set[self.diary_mood],
+                    icon=Icons.EMOJI_SYMBOLS,
+                ),
+                TextButton(
+                    self.diary_weather,
+                    icon=Icons.SUNNY_SNOWING,
+                ),
+                TextButton(
+                    self.diary_location if self.diary_location else '城市',
+                    icon=Icons.LOCATION_CITY,
+                ),
+                TextButton(
+                    diary_category_name,
+                    icon=Icons.LABEL,
+                ),
+            ],
+            wrap=True,
+        )
         # 布局
         cols_body = Column(
             controls=[
                 Column(
-                    controls=[self.note_view],
+                    controls=[
+                        buttons_row,
+                        self.note_view
+                    ],
                     scroll=ScrollMode.AUTO
                 )
             ],
