@@ -462,6 +462,17 @@ class MainView(Column):
             # 距离底部小于50像素时触发加载
             self.page.run_task(self.load_more)
 
+    def on_manage_tags_click(self, e):
+        self.page.controls.clear()
+        from tag_manage_view import TagManageView
+        page_view = SafeArea(
+            TagManageView(self.page),
+            adaptive=True,
+            expand=True
+        )
+        self.page.controls.append(page_view)
+        self.page.update()
+
     async def build_drawer(self):
         cached_user_info_value = await self.page.client_storage.get_async('diary_user_info')
         cached_user_info = json.loads(cached_user_info_value) if cached_user_info_value else {}
@@ -538,7 +549,16 @@ class MainView(Column):
                      hover_color=Colors.BLUE_50,
                      leading=Icon(Icons.ALL_INBOX),
                      on_click=self.on_query_all_diary_click,
-                     ),
+            ),
+            ListTile(
+                title=Text('管理分类'),
+                selected=self.selected_idx == 0,
+                selected_tile_color=Colors.BLUE_100,
+                hover_color=Colors.BLUE_50,
+                leading=Icon(Icons.SETTINGS),
+                on_click=self.on_manage_tags_click,
+            ),
+            Divider(),
         ]
         col_drawer = Column(
             controls=cate_list_tiles
@@ -562,8 +582,8 @@ class MainView(Column):
         col_drawer.controls.append(Container(expand=True))
         col_drawer.controls.append(
             Divider(
-                thickness=1,
-                color=Colors.GREY_200,
+                # thickness=1,
+                # color=Colors.GREY_200,
             )
         )
         col_drawer.controls.append(ListTile(title=Text('关于我们'),

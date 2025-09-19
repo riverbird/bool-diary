@@ -8,6 +8,7 @@ from flet.core.app_bar import AppBar
 from flet.core.bottom_app_bar import BottomAppBar
 from flet.core.colors import Colors
 from flet.core.column import Column
+from flet.core.container import Container
 from flet.core.date_picker import DatePicker
 from flet.core.dropdown import Dropdown
 from flet.core.icon_button import IconButton
@@ -20,6 +21,8 @@ from flet.core.text import Text
 from flet.core.text_button import TextButton
 from flet.core.textfield import TextField
 from flet.core.types import MainAxisAlignment, ScrollMode
+from flet.core.vertical_divider import VerticalDivider
+
 from components.custom_text_field import CustomTextField
 
 
@@ -165,25 +168,29 @@ class DiaryEditorView(Column):
                            on_click=self.on_button_cancel_click),
             ],
         )
-        self.page.bottom_appbar = BottomAppBar(
-            bgcolor=Colors.BLUE,
-            content=Row(
-                controls=[
-                    IconButton(
-                        icon=Icons.UNDO,
-                        icon_color=Colors.WHITE,
-                        tooltip='撤销',
-                        on_click=self.on_button_undo_click
-                    ),
-                    IconButton(
-                        icon=Icons.REDO,
-                        icon_color=Colors.WHITE,
-                        tooltip='重做',
-                        on_click=self.on_button_redo_click
-                    ),
-                ]
-            )
-        )
+        # self.page.bottom_appbar = BottomAppBar(
+        #     # height=35,
+        #     # scale=Scale(scale_x=1, scale_y=0.8),
+        #     bgcolor=Colors.BLUE,
+        #     content=Row(
+        #         controls=[
+        #             IconButton(
+        #                 # width=18, height=18,
+        #                 icon=Icons.UNDO,
+        #                 icon_color=Colors.WHITE,
+        #                 tooltip='撤销',
+        #                 on_click=self.on_button_undo_click
+        #             ),
+        #             IconButton(
+        #                 # width=18, height=18,
+        #                 icon=Icons.REDO,
+        #                 icon_color=Colors.WHITE,
+        #                 tooltip='重做',
+        #                 on_click=self.on_button_redo_click
+        #             ),
+        #         ]
+        #     )
+        # )
         self.page.floating_action_button = None
         self.page.drawer = None
         # self.init_diary_type()
@@ -579,10 +586,31 @@ class DiaryEditorView(Column):
             width=self.page.width,
             visible=False
         )
+        # 操作栏
+        row_ops = Row(
+            alignment=MainAxisAlignment.START,
+            spacing=0,
+            controls=[
+                IconButton(
+                    icon=Icons.UNDO,
+                    tooltip='撤销',
+                    on_click=self.on_button_undo_click
+                ),
+                IconButton(
+                    icon=Icons.REDO,
+                    tooltip='重做',
+                    on_click=self.on_button_redo_click
+                ),
+            ]
+        )
+        self.ops_toolbar = Container(
+            content=row_ops,
+        )
         # 布局
         cols_body = Column(
             controls=[
                 buttons_row,
+                self.ops_toolbar,
                 self.editor,
                 self.progress_bar
             ],
