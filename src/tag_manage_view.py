@@ -1,33 +1,33 @@
 # coding:utf-8
 import json
-from asyncio import Task, Future
+from asyncio import Future
 
 import httpx
 from flet.core import padding
 from flet.core.alert_dialog import AlertDialog
 from flet.core.app_bar import AppBar
-from flet.core.border import Border, BorderSide
 from flet.core.buttons import RoundedRectangleBorder
 from flet.core.colors import Colors
 from flet.core.column import Column
 from flet.core.container import Container
-from flet.core.filled_button import FilledButton
 from flet.core.floating_action_button import FloatingActionButton
-from flet.core.icon import Icon
+from flet.core.grid_view import GridView
 from flet.core.icon_button import IconButton
 from flet.core.icons import Icons
 from flet.core.list_tile import ListTile
 from flet.core.list_view import ListView
 from flet.core.popup_menu_button import PopupMenuButton, PopupMenuItem
 from flet.core.progress_bar import ProgressBar
-from flet.core.row import Row
 from flet.core.safe_area import SafeArea
 from flet.core.snack_bar import SnackBar
 from flet.core.text import Text
 from flet.core.text_button import TextButton
 from flet.core.textfield import TextField
 from flet.core.types import MainAxisAlignment
-from flet_contrib.color_picker.src.color_picker import ColorPicker
+
+from material_colors import MATERIAL_COLORS
+from common import diary_type_manager
+# from flet_contrib.color_picker import ColorPicker
 
 
 class TagManageView(Column):
@@ -36,9 +36,38 @@ class TagManageView(Column):
         self.page = page
 
         self.last_tag_info = None
+        self.selected_color_add = TextField('#cdcdcd')
+        self.selected_color_edit = TextField('#cdcdcd')
+
+        def pick_color_add(name):
+            self.selected_color_add.value = name
+            self.selected_color_add.update()
+
+        def pick_color_edit(name):
+            self.selected_color_edit.value = name
+            self.selected_color_edit.update()
+
+
+        self.grid_add = GridView(expand=True, max_extent=40, spacing=5, run_spacing=5)
+        self.grid_edit = GridView(expand=True, max_extent=40, spacing=5, run_spacing=5)
+        for k, v in MATERIAL_COLORS.items():
+            self.grid_add.controls.append(
+                Container(
+                    bgcolor=v,
+                    border_radius=5,
+                    on_click=lambda e, name=v: pick_color_add(name),
+                )
+            )
+            self.grid_edit.controls.append(
+                Container(
+                    bgcolor=v,
+                    border_radius=5,
+                    on_click=lambda e, name=v: pick_color_edit(name),
+                )
+            )
 
         self.tf_tag = TextField(hint_text='请输入新分类')
-        self.color_picker_new = ColorPicker()
+        # self.color_picker_new = ColorPicker()
         self.dlg_add_tag = AlertDialog(
             modal=True,
             title=Text('创建新分类'),
@@ -46,7 +75,8 @@ class TagManageView(Column):
                 controls=[
                     self.tf_tag,
                     # self.btn_new_select_color,
-                    self.color_picker_new,
+                    self.grid_add,
+                    self.selected_color_add
                 ],
                 alignment=MainAxisAlignment.START,
                 width=300,
@@ -60,14 +90,16 @@ class TagManageView(Column):
         )
 
         self.tf_edit_tag = TextField(hint_text='请输入分类')
-        self.color_picker_edit = ColorPicker()
+        # self.color_picker_edit = ColorPicker()
+
         self.dlg_edit_tag = AlertDialog(
             modal=True,
             title=Text('修改标签'),
             content=Column(
                 controls=[
                     self.tf_edit_tag,
-                    self.color_picker_edit,
+                    self.grid_edit,
+                    self.selected_color_edit
                 ],
                 alignment=MainAxisAlignment.START,
                 width=300,
@@ -145,7 +177,7 @@ class TagManageView(Column):
         if tag_info:
             self.page.dialog = self.dlg_edit_tag
             self.tf_edit_tag.value = tag_info.get('type_name')
-            self.color_picker_edit.color = tag_info.get('colour')
+            self.selected_color_edit.value = tag_info.get('colour')
             self.last_tag_info = tag_info
             self.dlg_edit_tag.open = True
             self.page.update()
@@ -230,7 +262,7 @@ class TagManageView(Column):
     async def on_dlg_add_tag_ok_click(self, e):
         token = await self.page.client_storage.get_async('token')
         user_id = await self.page.client_storage.get_async('user_id')
-        type_color = self.color_picker_new.color
+        type_color = self.selected_color_add.value
         url = 'https://restapi.10qu.com.cn/diarytype/'
         headers = {'Authorization': f'Bearer {token}'}
         user_input = {
@@ -273,7 +305,7 @@ class TagManageView(Column):
         await self.update_tag_name(
             self.last_tag_info.get('id'),
             self.tf_edit_tag.value,
-            self.color_picker_edit.color,
+            self.selected_color_edit.value,
         )
 
     def on_dlg_edit_tag_cancel_click(self, e):
@@ -291,6 +323,8 @@ class TagManageView(Column):
             self.page.update()
         else:
             lst_types = res
+            # SingletonList().diary_type_list = lst_types
+            diary_type_manager.global_diary_type_list = lst_types
             self.list_tags.controls.clear()
             for tag in lst_types:
                 self.list_tags.controls.append(

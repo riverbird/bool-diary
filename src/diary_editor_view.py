@@ -1,11 +1,10 @@
-import json
+# diary_editor_view.py
 from datetime import date, datetime
 
 import httpx
 from flet.core import dropdown
 from flet.core.alert_dialog import AlertDialog
 from flet.core.app_bar import AppBar
-from flet.core.bottom_app_bar import BottomAppBar
 from flet.core.colors import Colors
 from flet.core.column import Column
 from flet.core.container import Container
@@ -21,9 +20,10 @@ from flet.core.text import Text
 from flet.core.text_button import TextButton
 from flet.core.textfield import TextField
 from flet.core.types import MainAxisAlignment, ScrollMode
-from flet.core.vertical_divider import VerticalDivider
 
 from components.custom_text_field import CustomTextField
+from common.singleton_list import SingletonList
+from common import diary_type_manager
 
 
 class DiaryEditorView(Column):
@@ -35,7 +35,10 @@ class DiaryEditorView(Column):
         self.diary_mood = diary_info.get('diary_mood') if self.diary_info is not None else 0
         self.diary_weather = diary_info.get('diary_weather') if self.diary_info is not None else '晴'
         self.diary_location = diary_info.get('diary_location') if self.diary_info is not None else ''
-        self.diary_category_list = self.get_diary_type_list()
+        # self.diary_category_list = self.get_diary_type_list()
+        self.diary_category_list = SingletonList().diary_type_list
+        single_diary_type_list = SingletonList()
+        self.diary_category_list = diary_type_manager.global_diary_type_list
         self.diary_type = diary_info.get('diary_type') if self.diary_info is not None else None
 
         # 心情对话框
@@ -197,7 +200,8 @@ class DiaryEditorView(Column):
 
     def init_diary_type(self):
         if self.diary_category_list is None:
-            self.diary_category_list = self.get_diary_type_list()
+            # self.diary_category_list = self.get_diary_type_list()
+            self.diary_category_list = DiaryTypeManager().diary_type_list
         if self.diary_category_list:
             diary_category_name = next(
                 (opt.get('type_name') for opt in self.diary_category_list if opt.get('id') == self.diary_type),
@@ -303,7 +307,8 @@ class DiaryEditorView(Column):
 
     def show_category_dialog(self, e):
         if self.diary_category_list is None:
-            self.diary_category_list = self.get_diary_type_list()
+            # self.diary_category_list = self.get_diary_type_list()
+            self.diary_category_list = DiaryTypeManager().diary_type_list
         if self.diary_category_list:
             self.dropdown_category.clean()
             for diary in self.diary_category_list:
@@ -337,24 +342,24 @@ class DiaryEditorView(Column):
         self.dlg_category.open = False
         self.page.update()
 
-    def get_diary_type_list(self) -> list|None:
-        cached_diary_type_list_value = self.page.client_storage.get('diary_type_list')
-        cached_diary_type_list = json.loads(cached_diary_type_list_value) if cached_diary_type_list_value else []
-        if cached_diary_type_list:
-            return cached_diary_type_list
-        user_id = self.page.client_storage.get('user_id')
-        token = self.page.client_storage.get('token')
-        url = f'https://restapi.10qu.com.cn/diarytype?user={user_id}'
-        headers = {"Authorization": f'Bearer {token}'}
-        resp = httpx.get(url, headers=headers, follow_redirects=True)
-        if resp.status_code != 200:
-            return None
-        resp.raise_for_status()
-        data = resp.json()
-        lst_category = data.get('results')
-        cached_diary_type_list_str = json.dumps(lst_category)
-        self.page.client_storage.set('diary_type_list', cached_diary_type_list_str)
-        return lst_category
+    # def get_diary_type_list(self) -> list|None:
+    #     cached_diary_type_list_value = self.page.client_storage.get('diary_type_list')
+    #     cached_diary_type_list = json.loads(cached_diary_type_list_value) if cached_diary_type_list_value else []
+    #     if cached_diary_type_list:
+    #         return cached_diary_type_list
+    #     user_id = self.page.client_storage.get('user_id')
+    #     token = self.page.client_storage.get('token')
+    #     url = f'https://restapi.10qu.com.cn/diarytype?user={user_id}'
+    #     headers = {"Authorization": f'Bearer {token}'}
+    #     resp = httpx.get(url, headers=headers, follow_redirects=True)
+    #     if resp.status_code != 200:
+    #         return None
+    #     resp.raise_for_status()
+    #     data = resp.json()
+    #     lst_category = data.get('results')
+    #     cached_diary_type_list_str = json.dumps(lst_category)
+    #     self.page.client_storage.set('diary_type_list', cached_diary_type_list_str)
+    #     return lst_category
 
     def on_date_picker_changed(self, e):
         today = e.control.value.date()

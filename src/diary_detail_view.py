@@ -1,7 +1,6 @@
 """
 diary_detail_view.py
 """
-import json
 from datetime import datetime, date
 
 import httpx
@@ -22,6 +21,9 @@ from flet.core.text import Text
 from flet.core.text_button import TextButton
 from flet.core.types import MainAxisAlignment, ScrollMode, TextAlign
 
+from common import diary_type_manager
+
+
 class DiaryDetailView(Column):
     def __init__(self, page, diary_info):
         super().__init__()
@@ -32,7 +34,9 @@ class DiaryDetailView(Column):
         self.diary_mood = diary_info.get('diary_mood') if self.diary_info is not None else 0
         self.diary_weather = diary_info.get('diary_weather') if self.diary_info is not None else '晴'
         self.diary_location = diary_info.get('diary_location') if self.diary_info is not None else ''
-        self.diary_category_list = self.get_diary_type_list()
+        # self.diary_category_list = self.get_diary_type_list()
+        # self.diary_category_list = SingletonList().diary_type_list
+        self.diary_category_list = diary_type_manager.global_diary_type_list
         self.diary_type = diary_info.get('diary_type') if self.diary_info is not None else None
         content = self.build_interface()
 
@@ -116,24 +120,37 @@ class DiaryDetailView(Column):
         self.page.bottom_appbar = None
         self.controls = [content, self.dlg_info, self.dlg_delete_confirm]
 
-    def get_diary_type_list(self) -> list|None:
-        cached_diary_type_list_value = self.page.client_storage.get('diary_type_list')
-        cached_diary_type_list = json.loads(cached_diary_type_list_value) if cached_diary_type_list_value else []
-        if cached_diary_type_list:
-            return cached_diary_type_list
-        user_id = self.page.client_storage.get('user_id')
-        token = self.page.client_storage.get('token')
-        url = f'https://restapi.10qu.com.cn/diarytype?user={user_id}'
-        headers = {"Authorization": f'Bearer {token}'}
-        resp = httpx.get(url, headers=headers, follow_redirects=True)
-        if resp.status_code != 200:
-            return None
-        resp.raise_for_status()
-        data = resp.json()
-        lst_category = data.get('results')
-        cached_diary_type_list_str = json.dumps(lst_category)
-        self.page.client_storage.set('diary_type_list', cached_diary_type_list_str)
-        return lst_category
+    # async def get_diary_type_list(self) -> list|None:
+    #     cached_diary_type_list_value = await self.page.client_storage.get_async('diary_type_list')
+    #     cached_diary_type_list = json.loads(cached_diary_type_list_value) if cached_diary_type_list_value else []
+    #     if cached_diary_type_list:
+    #         return cached_diary_type_list
+    #     user_id = self.page.client_storage.get('user_id')
+    #     token = self.page.client_storage.get('token')
+    #     url = f'https://restapi.10qu.com.cn/diarytype?user={user_id}'
+    #     headers = {"Authorization": f'Bearer {token}'}
+    #     # resp = httpx.get(url, headers=headers, follow_redirects=True)
+    #     try:
+    #         async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+    #             resp = await client.get(
+    #                 url,
+    #                 headers=headers,
+    #                 follow_redirects=True)
+    #             resp.raise_for_status()
+    #             if resp.status_code != 200:
+    #                 return []
+    #             resp.raise_for_status()
+    #             data = resp.json()
+    #             lst_category = data.get('results')
+    #             cached_diary_type_list_str = json.dumps(lst_category)
+    #             self.page.client_storage.set('diary_type_list', cached_diary_type_list_str)
+    #             return lst_category
+    #     except httpx.HTTPError as e:
+    #         snack_bar = SnackBar(Text(f"查询用户日记类型请求失败:{str(e)}"))
+    #         self.page.overlay.append(snack_bar)
+    #         snack_bar.open = True
+    #         self.page.update()
+    #     return []
 
     def on_fab_pressed(self, e):
         self.page.controls.clear()
@@ -162,11 +179,13 @@ class DiaryDetailView(Column):
         self.page.update()
 
     def on_delete_diary(self, e):
+        self.page.dialog = self.dlg_delete_confirm
         self.dlg_delete_confirm.open = True
         self.page.update()
 
     def on_dlg_info_ok_click(self, e):
         self.dlg_info.open = False
+        self.page.dialog = None
         self.page.update()
 
     async def on_dlg_delete_confirm_ok_click(self, e):
@@ -195,7 +214,11 @@ class DiaryDetailView(Column):
             return
         # 关闭对话框
         self.dlg_delete_confirm.open = False
+        self.page.dialog = None
+        self.page.overlay.clear()
+        self.page.clean()
         self.page.update()
+
         # 跳转至主页
         self.page.controls.clear()
         from main_view import MainView
@@ -205,10 +228,13 @@ class DiaryDetailView(Column):
             expand=True
         )
         self.page.controls.append(page_view)
+        self.page.overlay.clear()
+        self.page.dialog = None
         self.page.update()
 
     def on_dlg_delete_confirm_cancel_click(self, e):
         self.dlg_delete_confirm.open = False
+        self.page.dialog = None
         self.page.update()
 
     def build_interface(self):

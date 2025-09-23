@@ -30,6 +30,8 @@ from flet.core.text import Text
 from flet.core.text_button import TextButton
 from flet.core.types import MainAxisAlignment, CrossAxisAlignment, ImageFit, FontWeight
 
+from common import diary_type_manager
+
 
 class MainView(Column):
     def __init__(self, page):
@@ -541,6 +543,8 @@ class MainView(Column):
         )
         # 获得日记类型列表
         lst_category = await self.get_diary_type_list()
+        # SingletonList().diary_type_list = lst_category
+        diary_type_manager.global_diary_type_list = lst_category
         cate_list_tiles = [
             head,
             ListTile(title=Text('所有'),
