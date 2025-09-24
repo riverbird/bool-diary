@@ -1,8 +1,12 @@
 # diary_editor_view.py
+from asyncio import Future
 from datetime import date, datetime
+import tempfile
+from pathlib import Path
 
 import httpx
-from flet.core import dropdown
+
+from flet.core import dropdown, alignment
 from flet.core.alert_dialog import AlertDialog
 from flet.core.app_bar import AppBar
 from flet.core.colors import Colors
@@ -10,19 +14,23 @@ from flet.core.column import Column
 from flet.core.container import Container
 from flet.core.date_picker import DatePicker
 from flet.core.dropdown import Dropdown
+from flet.core.file_picker import FilePicker
+from flet.core.icon import Icon
 from flet.core.icon_button import IconButton
 from flet.core.icons import Icons
+from flet.core.image import Image
 from flet.core.progress_bar import ProgressBar
 from flet.core.row import Row
 from flet.core.safe_area import SafeArea
 from flet.core.snack_bar import SnackBar
+from flet.core.stack import Stack
 from flet.core.text import Text
 from flet.core.text_button import TextButton
 from flet.core.textfield import TextField
-from flet.core.types import MainAxisAlignment, ScrollMode
+from flet.core.types import MainAxisAlignment, ScrollMode, ImageFit
+from PIL import Image as PImage
 
 from components.custom_text_field import CustomTextField
-from common.singleton_list import SingletonList
 from common import diary_type_manager
 
 
@@ -36,8 +44,7 @@ class DiaryEditorView(Column):
         self.diary_weather = diary_info.get('diary_weather') if self.diary_info is not None else '晴'
         self.diary_location = diary_info.get('diary_location') if self.diary_info is not None else ''
         # self.diary_category_list = self.get_diary_type_list()
-        self.diary_category_list = SingletonList().diary_type_list
-        single_diary_type_list = SingletonList()
+        # self.diary_category_list = SingletonList().diary_type_list
         self.diary_category_list = diary_type_manager.global_diary_type_list
         self.diary_type = diary_info.get('diary_type') if self.diary_info is not None else None
 
@@ -115,6 +122,7 @@ class DiaryEditorView(Column):
             ],
             actions_alignment=MainAxisAlignment.END,
         )
+
         # 城市/位置对话框
         self.tf_location = TextField(hint_text='所在城市或位置')
         self.dlg_location = AlertDialog(
@@ -132,6 +140,7 @@ class DiaryEditorView(Column):
             ],
             actions_alignment=MainAxisAlignment.END,
         )
+
         # 分类对话框
         self.dropdown_category = Dropdown()
         self.dlg_category = AlertDialog(
@@ -149,13 +158,6 @@ class DiaryEditorView(Column):
             ],
             actions_alignment=MainAxisAlignment.END,
         )
-        self.controls = [
-            self.build_interface(),
-            self.dlg_emoji,
-            self.dlg_weather,
-            self.dlg_location,
-            self.dlg_category,
-        ]
         self.page.appbar = AppBar(
             title=Text(''),
             bgcolor=Colors.BLUE,
@@ -171,37 +173,22 @@ class DiaryEditorView(Column):
                            on_click=self.on_button_cancel_click),
             ],
         )
-        # self.page.bottom_appbar = BottomAppBar(
-        #     # height=35,
-        #     # scale=Scale(scale_x=1, scale_y=0.8),
-        #     bgcolor=Colors.BLUE,
-        #     content=Row(
-        #         controls=[
-        #             IconButton(
-        #                 # width=18, height=18,
-        #                 icon=Icons.UNDO,
-        #                 icon_color=Colors.WHITE,
-        #                 tooltip='撤销',
-        #                 on_click=self.on_button_undo_click
-        #             ),
-        #             IconButton(
-        #                 # width=18, height=18,
-        #                 icon=Icons.REDO,
-        #                 icon_color=Colors.WHITE,
-        #                 tooltip='重做',
-        #                 on_click=self.on_button_redo_click
-        #             ),
-        #         ]
-        #     )
-        # )
+
         self.page.floating_action_button = None
         self.page.drawer = None
         # self.init_diary_type()
+        self.controls = [
+            self.build_interface(),
+            self.dlg_emoji,
+            self.dlg_weather,
+            self.dlg_location,
+            self.dlg_category,
+        ]
 
     def init_diary_type(self):
         if self.diary_category_list is None:
             # self.diary_category_list = self.get_diary_type_list()
-            self.diary_category_list = DiaryTypeManager().diary_type_list
+            self.diary_category_list = diary_type_manager.global_diary_type_list
         if self.diary_category_list:
             diary_category_name = next(
                 (opt.get('type_name') for opt in self.diary_category_list if opt.get('id') == self.diary_type),
@@ -308,7 +295,7 @@ class DiaryEditorView(Column):
     def show_category_dialog(self, e):
         if self.diary_category_list is None:
             # self.diary_category_list = self.get_diary_type_list()
-            self.diary_category_list = DiaryTypeManager().diary_type_list
+            self.diary_category_list = diary_type_manager.global_diary_type_list
         if self.diary_category_list:
             self.dropdown_category.clean()
             for diary in self.diary_category_list:
@@ -376,6 +363,7 @@ class DiaryEditorView(Column):
         self.page.update()
         token = await self.page.client_storage.get_async('token')
         user_id = await self.page.client_storage.get_async('user_id')
+        image_list = [x.data for x in self.row_images.controls if x.data is not None]
         content_data = [{'insert': str_content}]
         user_input = {'user': user_id,
                       'diary_type': self.diary_type,
@@ -383,7 +371,7 @@ class DiaryEditorView(Column):
                       'bmob_id': None,
                       'weather': self.diary_weather,
                       'location': self.diary_location,
-                      'img_list': None,
+                      'img_list': image_list,
                       'mood': self.diary_mood,
                       'content_data': content_data,
                       'content_html': str_content,
@@ -425,6 +413,7 @@ class DiaryEditorView(Column):
                 'diary_weather': data.get('weather'),
                 'diary_location': data.get('location'),
                 'diary_mood': data.get('mood'),
+                'diary_image_list': data.get('img_list'),
                 'create_time': data.get('create_time'),
                 'update_time': data.get('update_time'),
             }
@@ -485,6 +474,142 @@ class DiaryEditorView(Column):
 
     def on_button_redo_click(self, e):
         self.editor.redo()
+
+    def compress_image(self, input_path: str, output_path: str, quality: int = 70, max_size=(800, 800)):
+        """
+        压缩图片
+        :param input_path: 输入图片路径
+        :param output_path: 输出图片路径
+        :param quality: JPEG 质量（1-100）
+        :param max_size: 最大宽高，超过会等比缩放
+        """
+        with PImage.open(input_path) as img:
+            # 等比缩放
+            img.thumbnail(max_size)
+            # 保存为压缩后的文件
+            img.save(output_path, optimize=True, quality=quality)
+
+    async def upload_file(self, file_path):
+        url = "https://restapi.10qu.com.cn/image_to_url/"
+        # file_size = os.path.getsize(file_path)
+        image_url = None
+        token = await self.page.client_storage.get_async('token')
+        headers = {"Authorization": f'Bearer {token}'}
+        async with httpx.AsyncClient(timeout=None) as client:
+            with open(file_path, "rb") as f:
+                # uploaded = 0
+                # chunk_size = 1024 * 64  # 每次上传64KB
+                # async with client.stream("POST", url, files={"file": ("filename", f, "image/jpeg")}) as resp:
+                #     async for chunk in resp.aiter_bytes():
+                #         uploaded += len(chunk)
+                #         progress = uploaded / file_size
+                #         progress_bar.value = min(progress, 1.0)
+                #         page.update()
+                # files = {"file": (os.path.basename(file_path), f, "image/jpeg")}
+                files = {'img': open(file_path, 'rb')}
+                resp = await client.post(url, headers=headers, files=files)
+                if resp.status_code == 200:
+                    self.page.snack_bar = SnackBar(Text("上传完成！"))
+                    image_url = resp.json().get('results')
+                else:
+                    self.page.snack_bar = SnackBar(Text(f"上传失败:{resp.text}"))
+        # progress_bar.value = 1
+        # 删除本地临时文件
+        # temp_file = Path(file_path)
+        # if temp_file.exists():
+        #     temp_file.unlink()
+        self.page.snack_bar.open = True
+        self.page.update()
+        return image_url
+
+    def handle_uploaded_file(self, t:Future[str]):
+        try:
+            res = t.result()
+        except Exception as ex:
+            snack_bar = SnackBar(Text(f"获取照片地址失败:{str(ex)}"))
+            self.page.overlay.append(snack_bar)
+            snack_bar.open = True
+            self.progress_bar.visible = False
+            self.page.update()
+        else:
+            if not res:
+                return
+            image_url = res
+            spacing = 40
+            container_width = (self.page.width - spacing * 2) / 3
+            image_container = Container(
+                width=container_width,
+                height=container_width,
+                border_radius=5,
+                content=Image(src=image_url, fit=ImageFit.COVER,
+                                  width=container_width, height=container_width),
+            )
+            image_overlay = Container(
+                content=Icon(
+                    name=Icons.REMOVE,  # 减号图标
+                    size=50,
+                    color=Colors.RED,
+                ),
+                alignment=alignment.center,  # 居中放置
+                bgcolor=Colors.with_opacity(0.5, Colors.BLACK),  # 半透明灰色
+                width=container_width,
+                height=container_width,
+                border_radius=5,
+                on_click=self.on_remove_image,
+            )
+            stacked = Stack(
+                controls=[image_container, image_overlay],
+                data=image_url
+            )
+            self.row_images.controls.insert(0,stacked)
+            self.progress_bar.visible = False
+            self.page.update()
+
+    def on_remove_image(self, e):
+        parent_stack = e.control.parent
+        if parent_stack in self.row_images.controls:
+            self.row_images.controls.remove(parent_stack)
+            self.page.update()
+
+    def on_file_picked(self, e):
+        if e.files:
+            file_path = e.files[0].path
+            local_file_path = file_path
+            # self.page.add(Text(f"选择文件: {file_path}"))
+            # self.page.add(progress_bar)
+            self.progress_bar.visible = True
+            self.page.update()
+            try:
+                # with tempfile.TemporaryDirectory() as tmp_dir_name:
+                tmp_dir_name = tempfile.gettempdir()
+                compress_path = Path(tmp_dir_name) / Path("temp_photo.jpg")
+                self.compress_image(file_path, compress_path.as_posix(), quality=85)
+                local_file_path = compress_path.as_posix()
+            except Exception as ex:
+                snack_bar = SnackBar(Text(f"图片压缩失败，将以原图进行上传:{str(ex)}"))
+                e.control.page.overlay.append(snack_bar)
+                snack_bar.open = True
+                e.control.page.update()
+            else:
+                local_file_path = compress_path.as_posix()
+                # # 开启异步任务上传
+            task_upload_file = self.page.run_task(self.upload_file, local_file_path)
+            task_upload_file.add_done_callback(self.handle_uploaded_file)
+
+    def on_add_picture(self, e):
+        if len(self.row_images.controls) >= 10:
+            snack_bar = SnackBar(Text("最多支持9张照片上传!"))
+            e.control.page.overlay.append(snack_bar)
+            snack_bar.open = True
+            e.control.page.update()
+            return
+        file_picker = FilePicker(on_result=self.on_file_picked)
+        self.page.overlay.append(file_picker)
+        self.page.update()
+        file_picker.pick_files(
+            allow_multiple=False,
+            allowed_extensions=["jpg", "png"],
+        )
 
     def on_button_cancel_click(self, e):
         self.page.controls.clear()
@@ -611,13 +736,59 @@ class DiaryEditorView(Column):
         self.ops_toolbar = Container(
             content=row_ops,
         )
+        # 照片
+        spacing = 40
+        container_width = (self.page.width - spacing * 2) / 3
+        self.row_images = Row(
+            controls=[
+                Container(
+                    width=container_width,
+                    height=container_width,
+                    bgcolor=Colors.GREY_200,
+                    alignment=alignment.center,
+                    border_radius=5,
+                    content=Icon(name=Icons.ADD),
+                    on_click=self.on_add_picture,
+                )
+            ],
+            wrap=True
+        )
+        if self.diary_info is not None:
+            diary_image_list = self.diary_info.get('diary_image_list')
+            if diary_image_list:
+                for image_url in diary_image_list:
+                    image_container = Container(
+                        width=container_width, height=container_width,
+                        border_radius=5,
+                        content=Image(src=image_url, fit=ImageFit.COVER,
+                                      width=container_width, height=container_width),
+                    )
+                    image_overlay = Container(
+                        content=Icon(
+                            name=Icons.REMOVE,  # 减号图标
+                            size=50,
+                            color=Colors.RED,
+                        ),
+                        alignment=alignment.center,  # 居中放置
+                        bgcolor=Colors.with_opacity(0.5, Colors.BLACK),  # 半透明灰色
+                        width=container_width,
+                        height=container_width,
+                        border_radius=5,
+                        on_click=self.on_remove_image,
+                    )
+                    stacked = Stack(
+                        controls=[image_container, image_overlay],
+                        data=image_url
+                    )
+                    self.row_images.controls.insert(0, stacked)
         # 布局
         cols_body = Column(
             controls=[
                 buttons_row,
                 self.ops_toolbar,
                 self.editor,
-                self.progress_bar
+                self.row_images,
+                self.progress_bar,
             ],
             expand=True,
             scroll=ScrollMode.AUTO,

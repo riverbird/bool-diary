@@ -189,6 +189,7 @@ class MainView(Column):
                             'diary_weather': diary_weather,
                             'diary_location': diary_location,
                             'diary_mood': diary_mood,
+                            'diary_image_list': diary_info.get('img_list'),
                             'create_time': diary_info.get('create_time'),
                             'update_time': diary_info.get('update_time'),
                         }
@@ -200,6 +201,7 @@ class MainView(Column):
                 diary_text = diary.get('diary_text')[:200]
                 diary_weather = diary.get('diary_weather')
                 diary_location = diary.get('diary_location')
+                row_images = Row(wrap=True)
                 diary_item = Container(
                     data=diary,
                     margin=3,
@@ -250,6 +252,7 @@ class MainView(Column):
                                     # Markdown(
                                     #     value=diary_text,
                                     # ),
+                                    row_images,
                                     Row(
                                         alignment=MainAxisAlignment.START,
                                         controls=[
@@ -267,6 +270,26 @@ class MainView(Column):
                         ],
                     ),
                 )
+                diary_image_list = diary.get('diary_image_list')
+                if diary_image_list:
+                    spacing = 40
+                    container_width = (self.page.width - spacing * 2) / 3
+                    for image_url in diary_image_list:
+                        row_images.controls.append(
+                            Container(
+                                content=Image(
+                                    src=image_url,
+                                    fit=ImageFit.COVER,
+                                    width=container_width,
+                                    height=container_width
+                                ),
+                                width=container_width,
+                                height=container_width,
+                                border_radius=5,
+                                data=image_url,
+                                on_click=lambda e: self.open_fullscreen(e)
+                            )
+                        )
                 self.note_list.controls.append(diary_item)
             if len(lst_diary) == 10:
                 self.btn_load_more.visible = True
@@ -474,6 +497,28 @@ class MainView(Column):
         )
         self.page.controls.append(page_view)
         self.page.update()
+
+    def open_fullscreen(self, e):
+        image_url = e.control.data
+        overlay = Container(
+            content=Image(
+                src=image_url,
+                fit=ImageFit.CONTAIN,
+                expand=True,
+            ),
+            bgcolor=Colors.BLACK,
+            alignment=alignment.center,
+            expand=True,
+            on_click=lambda e: self.close_fullscreen(overlay),  # 点击关闭
+        )
+        self.page.overlay.clear()
+        self.page.overlay.append(overlay)
+        self.page.update()
+
+    def close_fullscreen(self, overlay):
+        if overlay in self.page.overlay:
+            self.page.overlay.remove(overlay)
+            self.page.update()
 
     async def build_drawer(self):
         cached_user_info_value = await self.page.client_storage.get_async('diary_user_info')

@@ -4,14 +4,17 @@ diary_detail_view.py
 from datetime import datetime, date
 
 import httpx
+from flet.core import alignment
 from flet.core.alert_dialog import AlertDialog
 from flet.core.app_bar import AppBar
 from flet.core.colors import Colors
 from flet.core.column import Column
+from flet.core.container import Container
 from flet.core.divider import Divider
 from flet.core.floating_action_button import FloatingActionButton
 from flet.core.icon_button import IconButton
 from flet.core.icons import Icons
+from flet.core.image import Image
 from flet.core.list_view import ListView
 from flet.core.popup_menu_button import PopupMenuButton, PopupMenuItem
 from flet.core.row import Row
@@ -19,7 +22,7 @@ from flet.core.safe_area import SafeArea
 from flet.core.snack_bar import SnackBar
 from flet.core.text import Text
 from flet.core.text_button import TextButton
-from flet.core.types import MainAxisAlignment, ScrollMode, TextAlign
+from flet.core.types import MainAxisAlignment, ScrollMode, TextAlign, ImageFit
 
 from common import diary_type_manager
 
@@ -118,7 +121,11 @@ class DiaryDetailView(Column):
         self.page.floating_action_button = floating_btn
         self.page.drawer = None
         self.page.bottom_appbar = None
-        self.controls = [content, self.dlg_info, self.dlg_delete_confirm]
+        self.controls = [
+            content,
+            self.dlg_info,
+            self.dlg_delete_confirm,
+        ]
 
     # async def get_diary_type_list(self) -> list|None:
     #     cached_diary_type_list_value = await self.page.client_storage.get_async('diary_type_list')
@@ -215,11 +222,11 @@ class DiaryDetailView(Column):
         # 关闭对话框
         self.dlg_delete_confirm.open = False
         self.page.dialog = None
-        self.page.overlay.clear()
-        self.page.clean()
         self.page.update()
 
         # 跳转至主页
+        self.page.clean()
+        self.page.overlay.clear()
         self.page.controls.clear()
         from main_view import MainView
         page_view = SafeArea(
@@ -228,7 +235,7 @@ class DiaryDetailView(Column):
             expand=True
         )
         self.page.controls.append(page_view)
-        self.page.overlay.clear()
+        # self.page.overlay.clear()
         self.page.dialog = None
         self.page.update()
 
@@ -236,6 +243,27 @@ class DiaryDetailView(Column):
         self.dlg_delete_confirm.open = False
         self.page.dialog = None
         self.page.update()
+
+    def open_fullscreen(self, e):
+        img_url = e.control.data
+        overlay = Container(
+            content=Image(
+                src=img_url,
+                fit=ImageFit.CONTAIN,
+                expand=True,
+            ),
+            bgcolor=Colors.BLACK,
+            alignment=alignment.center,
+            expand=True,
+            on_click=lambda e: self.close_fullscreen(overlay),  # 点击关闭
+        )
+        self.page.overlay.append(overlay)
+        self.page.update()
+
+    def close_fullscreen(self, overlay):
+        if overlay in self.page.overlay:
+            self.page.overlay.remove(overlay)
+            self.page.update()
 
     def build_interface(self):
         self.note_view = Text(
@@ -300,14 +328,38 @@ class DiaryDetailView(Column):
                 ),
             ],
             wrap=True,
+            run_spacing=2,
         )
+        # 照片
+        self.row_images = Row(wrap=True)
+        # self.row_images = GridView(
+        #     child_aspect_ratio=1,
+        #     max_extent=3,
+        # )
+        spacing = 40
+        container_width = (self.page.width - spacing *2) / 3
+        diary_image_list = self.diary_info.get('diary_image_list')
+        if diary_image_list:
+            for image_url in diary_image_list:
+                self.row_images.controls.append(
+                    Container(
+                        width=container_width, height=container_width,
+                        border_radius=5,
+                        content=Image(src=image_url, fit=ImageFit.COVER,
+                                      width=container_width, height=container_width),
+                        # on_click=lambda e: self.preview_picture(image_url),
+                        data=image_url,
+                        on_click=lambda e: self.open_fullscreen(e)
+                    )
+                )
         # 布局
         cols_body = Column(
             controls=[
                 Column(
                     controls=[
                         buttons_row,
-                        self.note_view
+                        self.note_view,
+                        self.row_images
                     ],
                     scroll=ScrollMode.AUTO
                 )

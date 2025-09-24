@@ -24,4 +24,4 @@ class SingletonList:
             self._diary_type_list.append(value)
 
     def __repr__(self):
-        return f"SingletonList({self._data})"
+        return f"SingletonList({self._diary_type_list})"

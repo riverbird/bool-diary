@@ -11,7 +11,8 @@ dependencies = [
     "flet==0.28.3",
     "requests>=2.32.4",
     "certifi==2025.8.3",
-    "flet-geolocator==0.1.0"
+    "flet-geolocator==0.1.0",
+    "pillow==10.4.0",
 ]
 
 [tool.flet]
